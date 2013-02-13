@@ -1,0 +1,7 @@
+HRWA Manager
+
+This app will eventually be the main manager for all HRWA archive file downloading, indexing, and CLIO-related interaction.
+
+Minimum JVM requirements:
+
+-Xmx2048M

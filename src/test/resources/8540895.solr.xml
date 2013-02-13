@@ -1,0 +1,16 @@
+<add overwrite="true">
+<doc>
+    <field name="archived_urls">http://wayback.archive-it.org/1068/*/http://www.amnesty.fo/</field>
+    <field name="bib_key">8540895</field>
+    <field name="creator_name">Amnesty International. Føroya deild</field>
+    <field name="geographic_focus">Faroe Islands</field>
+    <field name="language">Faroese</field>
+    <field name="organization_based_in">Faroe Islands</field>
+    <field name="organization_type">Non-governmental organizations</field>
+    <field name="original_urls">http://www.amnesty.fo/</field>
+    <field name="subject">Human rights (General)</field>
+    <field name="summary">Faroe Islands section of Amnesty International.</field>
+    <field name="title">Amnesty International, Føroya deild</field>
+    <field name="title__sort">AMNESTY INTERNATIONAL, FØROYA DEILD</field>
+</doc>
+</add>

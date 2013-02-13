@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<collection
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+  xmlns="http://www.loc.gov/MARC21/slim">
+
+<record>
+  <leader>01462cai a22003973a 4500</leader>
+  <controlfield tag="001">8540838</controlfield>
+  <controlfield tag="005">20110822222902.0</controlfield>
+  <controlfield tag="006">m|||| |||d| ||||||</controlfield>
+  <controlfield tag="007">cr||n|||||||||</controlfield>
+  <controlfield tag="008">110302cuuuu9999ph uu woo||||||    2eng d</controlfield>
+  <datafield tag="035" ind1=" " ind2=" ">
+    <subfield code="a">(OCoLC)708342589</subfield>
+  </datafield>
+  <datafield tag="035" ind1=" " ind2=" ">
+    <subfield code="a">(OCoLC)ocn708342589</subfield>
+  </datafield>
+  <datafield tag="035" ind1=" " ind2=" ">
+    <subfield code="a">(NNC)8540838</subfield>
+  </datafield>
+  <datafield tag="040" ind1=" " ind2=" ">
+    <subfield code="a">NNC</subfield>
+    <subfield code="c">NNC</subfield>
+  </datafield>
+  <datafield tag="043" ind1=" " ind2=" ">
+    <subfield code="a">a-ph---</subfield>
+  </datafield>
+  <datafield tag="050" ind1=" " ind2="4">
+    <subfield code="a">JC599.P6</subfield>
+  </datafield>
+  <datafield tag="110" ind1="2" ind2=" ">
+    <subfield code="a">Amnesty International Pilipinas.</subfield>
+  </datafield>
+  <datafield tag="245" ind1="1" ind2="0">
+    <subfield code="a">Amnesty International Philippines</subfield>
+    <subfield code="h">[electronic resource].</subfield>
+  </datafield>
+  <datafield tag="260" ind1=" " ind2=" ">
+    <subfield code="a">Quezon City, Philippines :</subfield>
+    <subfield code="b">Amnesty International Philippines</subfield>
+  </datafield>
+  <datafield tag="300" ind1=" " ind2=" ">
+    <subfield code="a">1 online resource.</subfield>
+  </datafield>
+  <datafield tag="500" ind1=" " ind2=" ">
+    <subfield code="a">Viewed on Mar. 11, 2011.</subfield>
+  </datafield>
+  <datafield tag="500" ind1=" " ind2=" ">
+    <subfield code="a">Preserved by Columbia University Libraries' Web Resources Collection Program.</subfield>
+  </datafield>
+  <datafield tag="520" ind1=" " ind2=" ">
+    <subfield code="a">Philippines chapter of Amnesty International.</subfield>
+  </datafield>
+  <datafield tag="650" ind1=" " ind2="0">
+    <subfield code="a">Human rights</subfield>
+    <subfield code="z">Philippines.</subfield>
+  </datafield>
+  <datafield tag="650" ind1=" " ind2="0">
+    <subfield code="a">Human rights advocacy</subfield>
+    <subfield code="z">Philippines.</subfield>
+  </datafield>
+  <datafield tag="653" ind1=" " ind2="0">
+    <subfield code="a">Non-governmental organizations</subfield>
+  </datafield>
+  <datafield tag="610" ind1="2" ind2="0">
+    <subfield code="a">Amnesty International Pilipinas.</subfield>
+  </datafield>
+  <datafield tag="852" ind1=" " ind2=" ">
+    <subfield code="x">965hrarchivec</subfield>
+    <subfield code="x">at2186</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2="0">
+    <subfield code="u">http://www.columbia.edu/cgi-bin/cul/resolve?clio8540838</subfield>
+    <subfield code="z">Current site</subfield>
+  </datafield>
+  <datafield tag="856" ind1="4" ind2="0">
+    <subfield code="u">http://www.columbia.edu/cgi-bin/cul/resolve?clio8540838.002</subfield>
+    <subfield code="z">Archived site</subfield>
+  </datafield>
+  <datafield tag="920" ind1="4" ind2="0">
+    <subfield code="u">http://www.amnesty.org.ph/</subfield>
+    <subfield code="z">Current site</subfield>
+  </datafield>
+  <datafield tag="920" ind1="4" ind2="1">
+    <subfield code="u">http://wayback.archive-it.org/1068/*/http://www.amnesty.org.ph/</subfield>
+    <subfield code="z">Archived site</subfield>
+  </datafield>
+  <datafield tag="965" ind1=" " ind2=" ">
+    <subfield code="a">ircrc</subfield>
+  </datafield>
+  <datafield tag="965" ind1=" " ind2=" ">
+    <subfield code="a">965hrportal</subfield>
+  </datafield>
+  <datafield tag="948" ind1="1" ind2=" ">
+    <subfield code="a">20110311</subfield>
+    <subfield code="b">o</subfield>
+    <subfield code="c">mw2064</subfield>
+    <subfield code="d">OSMC</subfield>
+  </datafield>
+  <datafield tag="900" ind1=" " ind2=" ">
+    <subfield code="a">AUTH</subfield>
+  </datafield>
+</record>
+
+</collection>

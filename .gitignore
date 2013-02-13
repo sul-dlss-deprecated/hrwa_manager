@@ -1,0 +1,15 @@
+# Ignore temp files
+*~
+\#*\#
+
+# OSX-related
+.DS_Store
+
+# Project-specific ignores
+sample_data/
+target/
+dependency-reduced-pom.xml
+.classpath
+.metadata/
+.project
+.settings/

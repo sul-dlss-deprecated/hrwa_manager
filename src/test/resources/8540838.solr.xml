@@ -1,0 +1,16 @@
+<add overwrite="true">
+<doc>
+    <field name="archived_urls">http://wayback.archive-it.org/1068/*/http://www.amnesty.org.ph/</field>
+    <field name="bib_key">8540838</field>
+    <field name="creator_name">Amnesty International Pilipinas</field>
+    <field name="geographic_focus">Philippines</field>
+    <field name="language">English</field>
+    <field name="organization_based_in">Philippines</field>
+    <field name="organization_type">Non-governmental organizations</field>
+    <field name="original_urls">http://www.amnesty.org.ph/</field>
+    <field name="subject">Human rights (General)</field>
+    <field name="summary">Philippines chapter of Amnesty International.</field>
+    <field name="title">Amnesty International Philippines</field>
+    <field name="title__sort">AMNESTY INTERNATIONAL PHILIPPINES</field>
+</doc>
+</add>
