@@ -10,12 +10,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.Test;
 
 import edu.columbia.ldpd.hrwa.MimetypeDetector;
 
 public class MimetypeDetectorTest {
+	
+	private int numLoopsForMultithreadedTest = 500;
+	private int numThreadsToCreateForMultithreadedTest = 4;
 
 	@Test
 	public void mimetypeDetectionTest_null() throws FileNotFoundException {
@@ -89,6 +95,98 @@ public class MimetypeDetectorTest {
 		actualMimetype = new MimetypeDetector().getMimetype(file);
 		//System.out.println("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype);
 		assertTrue("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype, Arrays.asList(expectedMimetypes).contains(actualMimetype));
+	}
+	
+	@Test
+	public void mimetypeDecectorWorksInMultithreadedScenario() {
+	
+		System.out.println("Multithreading speed test:");
+		
+		long startTime;
+		String expectedMimetype;
+		InputStream is;
+		String actualMimetype;
+		
+		//Ignore first run below (just used to initialize any first-time-run stuff)
+		expectedMimetype = "application/pdf";
+		is = this.getClass().getResourceAsStream("/mimetype_detector/test_pdf.pdf");
+		actualMimetype = new MimetypeDetector().getMimetype(is, "test_pdf.pdf");
+		assertEquals(expectedMimetype, actualMimetype);
+		
+		//Standard mimetype detection
+		startTime = System.currentTimeMillis();
+		
+		for(int i = 0; i < numLoopsForMultithreadedTest; i++) {
+			expectedMimetype = "application/pdf";
+			is = this.getClass().getResourceAsStream("/mimetype_detector/test_pdf.pdf");
+			actualMimetype = new MimetypeDetector().getMimetype(is, "test_pdf.pdf");
+			assertEquals(expectedMimetype, actualMimetype);
+		}
+		
+		long singleThreadedRunTime = System.currentTimeMillis() - startTime;
+		
+		System.out.println("-- Single threaded total time: " + singleThreadedRunTime + " ms");
+		
+		Thread[] threads = new Thread[numThreadsToCreateForMultithreadedTest];
+		Future[] futures = new Future[numThreadsToCreateForMultithreadedTest];
+		
+		for(int i = 0; i < numThreadsToCreateForMultithreadedTest; i++) {
+			threads[i] = new Thread("thread" + i) {
+				
+				public void run() {
+					
+					String expectedMimetype;
+					InputStream is;
+					String actualMimetype;
+					
+					int fractionOfLoopsForDistributedWork = numLoopsForMultithreadedTest/numThreadsToCreateForMultithreadedTest;
+					
+					for(int i = 0; i < fractionOfLoopsForDistributedWork; i++) {
+						expectedMimetype = "application/pdf";
+						is = this.getClass().getResourceAsStream("/mimetype_detector/test_pdf.pdf");
+						actualMimetype = new MimetypeDetector().getMimetype(is, "test_pdf.pdf");
+						assertEquals(expectedMimetype, actualMimetype);
+					}
+				}
+			
+			};
+		}
+		
+		startTime = System.currentTimeMillis();
+		ExecutorService es = Executors.newFixedThreadPool(threads.length);
+		
+		startTime = System.currentTimeMillis();
+		
+		for(int i = 0; i < numThreadsToCreateForMultithreadedTest; i++) {
+			futures[i] = es.submit(threads[i]); 
+		}
+		
+		while( true ) {
+			
+			boolean foundRunningThread = false;
+			
+			for(Future singleFuture : futures) {
+				if( ! singleFuture.isDone() ) {
+					foundRunningThread = true;
+				}
+			}
+			
+			if(! foundRunningThread ) {
+				break;
+			}
+			
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		long multiThreadedRunTime = System.currentTimeMillis() - startTime;
+		
+		System.out.println("-- Multithreaded distribution between " + numThreadsToCreateForMultithreadedTest + " threads: " + multiThreadedRunTime + " ms");
+		
 	}
 
 }
