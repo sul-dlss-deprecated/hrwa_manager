@@ -66,7 +66,7 @@ public class FacetFieldTest {
 
     @Test
     public void creatorField(){
-        String [] expected = new String[]{"Amnesty International. F¿roya deild"};
+        String [] expected = new String[]{"Amnesty International. F\u00F8roya deild"}; // \u00F8 == Ã¸ (small letter o with slash) 
         CreatorField test = (CreatorField)FIELDS.get("creator_name");
         String [] actual = test.getValues(marc8540895);
         assertArrayEquals(expected, actual);

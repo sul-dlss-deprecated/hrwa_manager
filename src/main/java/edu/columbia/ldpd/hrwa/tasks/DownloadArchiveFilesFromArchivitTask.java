@@ -31,8 +31,8 @@ import edu.columbia.ldpd.hrwa.HrwaManager;
 public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 	
 	private String archiveFileDownloadDomain = "https://www.archive-it.org";
-	//private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=1716"; // temp small subset for testing
-	private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=1068"; // "human rights" archive collection - just one for now, but allowing for more later on
+	private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=1716"; // temp small subset for testing
+	//private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=1068"; // "human rights" archive collection - just one for now, but allowing for more later on
 	
 	//ARCHIVEIT-1716-SEMIANNUAL-XOYSOA-20121117062101-00002-wbgrp-crawl058.us.archive.org-6680.warc
 	private final Pattern ARCHIVE_FILE_DATE_PATTERN = Pattern.compile(".+-(\\d{4})(\\d{2})\\d{2}\\d{2}\\d{2}\\d{2}-.+");
@@ -203,7 +203,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			// Download file to temp directory in case the download process
 			// is interrupted, so that we're never left with incomplete files
 			// in the final download directory.
-			String tempFileDownloadLocation = HrwaManager.archiveFileDirPath + File.separator + singleArchiveFileInfo.get("fileName");
+			String tempFileDownloadLocation = DownloadArchiveFilesFromArchivitTask.pathToTempDownloadDir + File.separator + singleArchiveFileInfo.get("fileName");
 			
 			//There shouldn't be any file current at tempFileDownloadLocation, but let's check just in case
 			if(new File(tempFileDownloadLocation).exists()) {

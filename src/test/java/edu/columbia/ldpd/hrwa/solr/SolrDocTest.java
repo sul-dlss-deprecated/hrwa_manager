@@ -40,7 +40,7 @@ public class SolrDocTest {
     public void testIntegration() throws IOException {
         InputStream eis = FacetFieldTest.class.getResourceAsStream("/8540895.solr.xml");
         File solrDir = temp.newFolder("solr");
-        File marcDir = temp.newFolder("solr");
+        File marcDir = temp.newFolder("marc");
         MARCFetcher fetcher = new MARCFetcher(marcDir);
         fetcher.fetch(1,1007,"8540895");
         InputStream marc = new FileInputStream(new File(marcDir,"8540895.xml"));

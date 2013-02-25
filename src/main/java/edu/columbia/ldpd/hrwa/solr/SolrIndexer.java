@@ -51,7 +51,17 @@ public class SolrIndexer {
         File[] files = solrDir.listFiles();
         int ctr = 0;
         int status = 0;
+        
+        int numIgnoredFiles = 0;
+        
         for (File file:files){
+        	
+        	if(file.getName().equals(".DS_Store")) {
+				//Ignore OSX .DS_Store files
+        		numIgnoredFiles++;
+				continue;
+			}
+        	
             status = log(file.getAbsolutePath(), post(file));
             if (status > 199 && status < 300){
                 if ((++ctr % updateBatchSize) == 0){
@@ -71,7 +81,7 @@ public class SolrIndexer {
                 e.printStackTrace();
             }
         }
-        logSuccess("" + ctr + "/" + files.length + " records indexed");
+        logSuccess("" + ctr + "/" + (files.length-numIgnoredFiles) + " records indexed");
         if (ctr != files.length) {
         }
     }

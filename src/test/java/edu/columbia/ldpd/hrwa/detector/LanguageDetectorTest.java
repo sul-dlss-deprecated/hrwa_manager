@@ -1,4 +1,4 @@
-package edu.columbia.ldpd.hrwa.test;
+package edu.columbia.ldpd.hrwa.detector;
 
 import static org.junit.Assert.assertEquals;
 
@@ -12,7 +12,7 @@ import edu.columbia.ldpd.hrwa.LanguageDetector;
 
 public class LanguageDetectorTest {
 
-	private final String languageDetectorProfileDirectory = "." + File.separatorChar + "resources" + File.separatorChar + "langdetect-profiles";
+	private final String languageDetectorProfileDirectory = "./src/main/resources/langdetect-profiles";
 	private final LanguageDetector languageDetector = new LanguageDetector(languageDetectorProfileDirectory);
 
 	@Test
@@ -34,7 +34,7 @@ public class LanguageDetectorTest {
 		System.out.println("Expected: " + expectedLanguage + ", Received: " + detectedLanguage + " (with probability: " + detectedLanguageProbability + ")");
 		assertEquals(expectedLanguage, detectedLanguage);
 
-		file = new File("." + File.separatorChar + "sample_data" + File.separatorChar + "test_french.html");
+		file = new File("./src/test/resources/language_detector/test_french.html");
 		expectedLanguage = "fr";
 
 		returnedLanguageObject = languageDetector.getLanguage(file);
@@ -54,7 +54,7 @@ public class LanguageDetectorTest {
 
 	@Test
 	public void languageDetectionTest_spanish() {
-		File file = new File("." + File.separatorChar + "sample_data" + File.separatorChar + "test_spanish.html");
+		File file = new File("./src/test/resources/language_detector/test_spanish.html");
 		String expectedLanguage = "es";
 
 		Language returnedLanguageObject = languageDetector.getLanguage(file);

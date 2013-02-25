@@ -1,4 +1,4 @@
-package edu.columbia.ldpd.hrwa.test;
+package edu.columbia.ldpd.hrwa;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
