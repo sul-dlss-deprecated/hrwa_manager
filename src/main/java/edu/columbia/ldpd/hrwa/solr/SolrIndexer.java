@@ -18,6 +18,8 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 
+import edu.columbia.ldpd.hrwa.TimeStringFormat;
+
 
 public class SolrIndexer {
     public static final String EMAIL_SENDER_KEY = "EMAIL_SENDER";
@@ -54,6 +56,8 @@ public class SolrIndexer {
         
         int numIgnoredFiles = 0;
         
+        long startTime = System.currentTimeMillis();
+        
         for (File file:files){
         	
         	if(file.getName().equals(".DS_Store")) {
@@ -81,7 +85,7 @@ public class SolrIndexer {
                 e.printStackTrace();
             }
         }
-        logSuccess("" + ctr + "/" + (files.length-numIgnoredFiles) + " records indexed");
+        logSuccess("" + ctr + "/" + (files.length-numIgnoredFiles) + " records indexed. FSF Solr indexing time: " + TimeStringFormat.getTimeString((System.currentTimeMillis()-startTime)/1000));
         if (ctr != files.length) {
         }
     }

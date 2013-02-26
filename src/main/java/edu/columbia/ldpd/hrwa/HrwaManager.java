@@ -8,6 +8,7 @@ import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -17,9 +18,10 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
-import edu.columbia.ldpd.hrwa.tasks.IndexFSFDataToSolrAndMySQLTask;
+import edu.columbia.ldpd.hrwa.tasks.CompleteReindexOfFSFDataToSolrAndMySQLTask;
 
 public class HrwaManager {
 	
@@ -33,6 +35,12 @@ public class HrwaManager {
     private static CommandLine	cmdLine;
     
     private static long appStartTime = System.currentTimeMillis();
+    
+    // Memory stuff
+ 	public static long maxAvailableMemoryInBytes = Runtime.getRuntime().maxMemory();
+ 	
+ 	//CPU Stuff
+ 	private static int maxAvailableProcessors = Runtime.getRuntime().availableProcessors();
 
     // Command line options
     public static boolean    	verbose					= false;
@@ -44,10 +52,15 @@ public class HrwaManager {
 	public static String		archiveFileDirPath		= "." + File.separatorChar + "sample_data"; //default, should be overridden
 	public static String		archiveItUsername	= ""; //default, should be overridden
 	public static String		archiveItPassword	= ""; //default, should be overridden
+	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
+	
+	//Shared constants
+	public static final Pattern ARCHIVE_FILE_DATE_PATTERN = Pattern.compile(".+-(\\d{4})(\\d{2})\\d{2}\\d{2}\\d{2}\\d{2}-.+");
 	
 	//Task stuff
-	public static boolean runDownloadArchiveFilesTask	= false;
-	public static boolean runIndexFSFDataTask			= false;
+	private static boolean runDownloadArchiveFilesTask		= false;
+	private static boolean runCompleteReindexOfFSFDataTask	= false;
+	private static boolean runArchiveToMySQLTask			= false;
 	
 	// Log stuff
 	private static BufferedWriter mysqlStandardLogWriter;
@@ -58,10 +71,6 @@ public class HrwaManager {
 	public static final int LOG_TYPE_ERROR = 1;
 	public static final int LOG_TYPE_NOTICE = 2;
 	public static final int LOG_TYPE_MEMORY = 3;
-	
-	// Memory stuff
-	public static long maxAvailableMemoryInBytes = Runtime.getRuntime().maxMemory();
-	public static long maxAvailableProcessors = Runtime.getRuntime().availableProcessors();
 	
 	private static ArrayList<HrwaTask> tasksToRun = new ArrayList<HrwaTask>(); 
 
@@ -91,7 +100,8 @@ public class HrwaManager {
 		//Print out max memory allocated to this process
 		
 		HrwaManager.writeToLog("Max Available Memory: " + (maxAvailableMemoryInBytes / (1024*1024)) + " MB", true, LOG_TYPE_STANDARD);
-		HrwaManager.writeToLog("maxAvailableProcessors: " + maxAvailableProcessors, true, LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Max Available Processors: " + maxAvailableProcessors, true, LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Max USABLE Processors (based on default value or user preferences): " + maxUsableProcessors, true, LOG_TYPE_STANDARD);
 		
 		//Add preview mode notation to log if in previewMode
 		if(previewMode) {
@@ -110,8 +120,11 @@ public class HrwaManager {
 		if(runDownloadArchiveFilesTask) {
 			tasksToRun.add(new DownloadArchiveFilesFromArchivitTask());
 		}
-		if(runIndexFSFDataTask) {
-			tasksToRun.add(new IndexFSFDataToSolrAndMySQLTask());
+		if(runCompleteReindexOfFSFDataTask) {
+			tasksToRun.add(new CompleteReindexOfFSFDataToSolrAndMySQLTask());
+		}
+		if(runArchiveToMySQLTask) {
+			tasksToRun.add(new ArchiveToMySQLTask());
 		}
 		//tasksToRun.add(new IndexArchiveFilesTask(archiveFileDirPath));
 		
@@ -219,8 +232,6 @@ public class HrwaManager {
         // If the user isn't asking for usage help, validate the given command line options.
         if( ! cmdLine.hasOption( "help" ) )
         {
-	        //Check For Invalid options/combinations
-        	//Note: Nothing to check for right now.
 
 	        //And then process the command line args
 	        if ( cmdLine.hasOption( "verbose" ) ) {
@@ -268,16 +279,32 @@ public class HrwaManager {
 	        	System.out.println("An archive-it password was supplied.");
 	        }
 	        
+	        if ( cmdLine.hasOption( "maxusableprocessors") ) {
+	        	if( Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" )) > HrwaManager.maxAvailableProcessors ) {
+	        		System.err.println("Error: Supplied command line value for maxusableprocessors (" + Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" )) + ") is greater than the number of available processors on this machine (" + HrwaManager.maxAvailableProcessors + ")");
+	        		System.exit(EXIT_CODE_ERROR);
+	        	} else {
+	        		maxUsableProcessors = Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" ));
+	        		System.out.println("The maximum number of usable processors has been set to: " + HrwaManager.maxUsableProcessors);
+	        	}
+	        }
+	        
 	        //Task 1: downloadarchivefiles
 	        if ( cmdLine.hasOption( "downloadarchivefiles") ) {
 	        	HrwaManager.runDownloadArchiveFilesTask = true;
 	        	System.out.println("* Will run DownloadArchiveFilesFromArchivitTask.");
 	        }
 	        
-	        //Task 2: indexfsfdata
-	        if ( cmdLine.hasOption( "indexfsfdata") ) {
-	        	HrwaManager.runIndexFSFDataTask = true;
-	        	System.out.println("* Will run IndexFSFDataToSolrAndMySQLTask.");
+	        //Task 2: completereindexoffsfdata
+	        if ( cmdLine.hasOption( "completereindexoffsfdata") ) {
+	        	HrwaManager.runCompleteReindexOfFSFDataTask = true;
+	        	System.out.println("* Will run CompleteReindexOfFSFDataToSolrAndMySQLTask.");
+	        }
+	        
+	        //Task 3: archivetomysql
+	        if ( cmdLine.hasOption( "archivetomysql") ) {
+	        	HrwaManager.runArchiveToMySQLTask = true;
+	        	System.out.println("* Will run ArchiveToMySQLTask.");
 	        }
         }
         else
@@ -304,7 +331,8 @@ public class HrwaManager {
         options.addOption( "verbose",		false, "More verbose console output." );
         options.addOption( "preview",		false, "Run all operations in preview mode (no real changes will be made)." );
         options.addOption( "downloadarchivefiles",	false, "Run DownloadArchiveFilesFromArchivitTask" );
-        options.addOption( "indexfsfdata",			false, "Run IndexFSFDataToSolrAndMySQLTask" );
+        options.addOption( "completereindexoffsfdata",			false, "Run CompleteReindexOfFSFDataToSolrAndMySQLTask" );
+        options.addOption( "archivetomysql",			false, "Run ArchiveToMySQLTask" );
         
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
@@ -353,6 +381,13 @@ public class HrwaManager {
                 .hasArg()
                 .withDescription( "Password required for logging into the Archive-It website and downloading archive files." )
                 .create( "archiveitpassword" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "integer" )
+                .hasArg()
+                .withDescription( "The maximum number of processors that should be used by this program. Defaults to (number of processors - 1). Note: Supplied value muse be <= the number of cores available on the machine." )
+                .create( "maxusableprocessors" )
         );
         
     }

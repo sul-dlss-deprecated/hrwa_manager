@@ -39,6 +39,9 @@ public class MimetypeDetectorTest {
 		String expectedMimetype = "text/html";
 		
 		String actualMimetype = new MimetypeDetector().getMimetype(is, "test_html.html");
+		//Close input stream
+		try { is.close(); }
+		catch (IOException e) { e.printStackTrace(); }
 		//System.out.println("Expected: " + expectedMimetype + ", Received: " + actualMimetype);
 		assertEquals(expectedMimetype, actualMimetype);
 		
@@ -55,6 +58,9 @@ public class MimetypeDetectorTest {
 		String expectedMimetype = "application/pdf";
 		
 		String actualMimetype = new MimetypeDetector().getMimetype(is, "test_pdf.pdf");
+		//Close input stream
+		try { is.close(); }
+		catch (IOException e) { e.printStackTrace(); }
 		//System.out.println("Expected: " + expectedMimetype + ", Received: " + actualMimetype);
 		assertEquals(expectedMimetype, actualMimetype);
 		
@@ -71,6 +77,9 @@ public class MimetypeDetectorTest {
 		String[] expectedMimetypes = {"application/vnd.openxmlformats-officedocument.presentationml.presentation"};
 		
 		String actualMimetype = new MimetypeDetector().getMimetype(is, "test_powerpoint.pptx");
+		//Close input stream
+		try { is.close(); }
+		catch (IOException e) { e.printStackTrace(); }
 		//System.out.println("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype);
 		assertTrue("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype, Arrays.asList(expectedMimetypes).contains(actualMimetype));
 		
@@ -87,6 +96,9 @@ public class MimetypeDetectorTest {
 		String[] expectedMimetypes = {"application/vnd.openxmlformats-officedocument.wordprocessingml.document"};
 		
 		String actualMimetype = new MimetypeDetector().getMimetype(is, "test_word.docx");
+		//Close input stream
+		try { is.close(); }
+		catch (IOException e) { e.printStackTrace(); }
 		//System.out.println("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype);
 		assertTrue("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype, Arrays.asList(expectedMimetypes).contains(actualMimetype));
 		
@@ -111,6 +123,9 @@ public class MimetypeDetectorTest {
 		expectedMimetype = "application/pdf";
 		is = this.getClass().getResourceAsStream("/mimetype_detector/test_pdf.pdf");
 		actualMimetype = new MimetypeDetector().getMimetype(is, "test_pdf.pdf");
+		//Close input stream
+		try { is.close(); }
+		catch (IOException e) { e.printStackTrace(); }
 		assertEquals(expectedMimetype, actualMimetype);
 		
 		//Standard mimetype detection
@@ -120,6 +135,9 @@ public class MimetypeDetectorTest {
 			expectedMimetype = "application/pdf";
 			is = this.getClass().getResourceAsStream("/mimetype_detector/test_pdf.pdf");
 			actualMimetype = new MimetypeDetector().getMimetype(is, "test_pdf.pdf");
+			//Close input stream
+			try { is.close(); }
+			catch (IOException e) { e.printStackTrace(); }
 			assertEquals(expectedMimetype, actualMimetype);
 		}
 		
@@ -145,6 +163,9 @@ public class MimetypeDetectorTest {
 						expectedMimetype = "application/pdf";
 						is = this.getClass().getResourceAsStream("/mimetype_detector/test_pdf.pdf");
 						actualMimetype = new MimetypeDetector().getMimetype(is, "test_pdf.pdf");
+						//Close input stream
+						try { is.close(); }
+						catch (IOException e) { e.printStackTrace(); }
 						assertEquals(expectedMimetype, actualMimetype);
 					}
 				}

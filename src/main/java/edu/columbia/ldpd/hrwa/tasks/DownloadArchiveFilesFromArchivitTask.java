@@ -35,7 +35,6 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 	//private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=1068"; // "human rights" archive collection - just one for now, but allowing for more later on
 	
 	//ARCHIVEIT-1716-SEMIANNUAL-XOYSOA-20121117062101-00002-wbgrp-crawl058.us.archive.org-6680.warc
-	private final Pattern ARCHIVE_FILE_DATE_PATTERN = Pattern.compile(".+-(\\d{4})(\\d{2})\\d{2}\\d{2}\\d{2}\\d{2}-.+");
 	
 	private static String pathToTempDownloadDir = HrwaManager.tmpDirPath + File.separatorChar + "downloads";
 
@@ -150,7 +149,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			}
 			
 			//Extract crawl date from file name
-			Matcher matcher = ARCHIVE_FILE_DATE_PATTERN.matcher(fileName);
+			Matcher matcher = HrwaManager.ARCHIVE_FILE_DATE_PATTERN.matcher(fileName);
 			
 			if(matcher.matches()) {
 				//Note matcher.group(0) returns the entire matched string 
