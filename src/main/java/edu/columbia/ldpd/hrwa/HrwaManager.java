@@ -8,6 +8,7 @@ import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
@@ -50,12 +51,18 @@ public class HrwaManager {
     public static String		logFilePrefix 			= new SimpleDateFormat("yy-MM-dd-HHmmss").format(new Date()); //default value, can be overridden by command line args
     public static String 		blobDirPath 			= "." + File.separatorChar + "blobs";
 	public static String		archiveFileDirPath		= "." + File.separatorChar + "sample_data"; //default, should be overridden
-	public static String		archiveItUsername	= ""; //default, should be overridden
-	public static String		archiveItPassword	= ""; //default, should be overridden
+	public static String		archiveItUsername		= ""; //default, should be overridden
+	public static String		archiveItPassword		= ""; //default, should be overridden
+	public static int			archiveItCollectionId 	= -1; //default, should be overridden
+	public static String		mysqlURL			= ""; //default, should be overridden
+	public static String		mysqlDatabase		= ""; //default, should be overridden
+	public static String		mysqlUsername		= ""; //default, should be overridden
+	public static String		mysqlPassword		= ""; //default, should be overridden
+	
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
 	
 	//Shared constants
-	public static final Pattern ARCHIVE_FILE_DATE_PATTERN = Pattern.compile(".+-(\\d{4})(\\d{2})\\d{2}\\d{2}\\d{2}\\d{2}-.+");
+	public static final Pattern ARCHIVE_FILE_DATE_PATTERN = Pattern.compile(".+-(\\d{4})(\\d{2})\\d{2}\\d{2}\\d{2}\\d{2}-.+"); //Sample: //ARCHIVEIT-1716-SEMIANNUAL-XOYSOA-20121117062101-00002-wbgrp-crawl058.us.archive.org-6680.warc
 	
 	//Task stuff
 	private static boolean runDownloadArchiveFilesTask		= false;
@@ -126,7 +133,6 @@ public class HrwaManager {
 		if(runArchiveToMySQLTask) {
 			tasksToRun.add(new ArchiveToMySQLTask());
 		}
-		//tasksToRun.add(new IndexArchiveFilesTask(archiveFileDirPath));
 		
 		//And run those tasks
 		HrwaManager.writeToLog("Total number of tasks to run: " + tasksToRun.size(), true, LOG_TYPE_STANDARD);
@@ -185,20 +191,28 @@ public class HrwaManager {
 
 		try {
 			if(log_type == LOG_TYPE_ERROR) {
-				mysqlErrorLogWriter.write(stringToWrite + "\n");
-				mysqlErrorLogWriter.flush();
+				synchronized(mysqlErrorLogWriter) {
+					mysqlErrorLogWriter.write(stringToWrite + "\n");
+					mysqlErrorLogWriter.flush();
+				}
 			}
 			else if(log_type == LOG_TYPE_NOTICE) {
-				mysqlNoticeLogWriter.write(stringToWrite + "\n");
-				mysqlNoticeLogWriter.flush();
+				synchronized(mysqlNoticeLogWriter) {
+					mysqlNoticeLogWriter.write(stringToWrite + "\n");
+					mysqlNoticeLogWriter.flush();
+				}
 			}
 			else if(log_type == LOG_TYPE_MEMORY) {
-				mysqlMemoryLogWriter.write(stringToWrite + "\n");
-				mysqlMemoryLogWriter.flush();
+				synchronized(mysqlMemoryLogWriter) {
+					mysqlMemoryLogWriter.write(stringToWrite + "\n");
+					mysqlMemoryLogWriter.flush();
+				}
 			}
 			else {
-				mysqlStandardLogWriter.write(stringToWrite + "\n");
-				mysqlStandardLogWriter.flush();
+				synchronized(mysqlStandardLogWriter) {
+					mysqlStandardLogWriter.write(stringToWrite + "\n");
+					mysqlStandardLogWriter.flush();
+				}
 			}
 		} catch (IOException e) {
 			
@@ -279,6 +293,21 @@ public class HrwaManager {
 	        	System.out.println("An archive-it password was supplied.");
 	        }
 	        
+	        if ( cmdLine.hasOption( "archiveitcollectionid") ) {
+	        	archiveItCollectionId = Integer.parseInt(cmdLine.getOptionValue( "archiveitcollectionid" ));
+	        	System.out.println("An archive-it collection id was supplied.");
+	        	
+	        	if(HrwaManager.archiveItCollectionId != 1068 && HrwaManager.archiveItCollectionId != 1716) {
+	        		System.out.println("Error: Invalid Archive-It collection specified (or none supplied). Collection ID: " + HrwaManager.archiveItCollectionId);
+	        		System.out.println(	"Valid options:\n" +
+	    								"-- 1068: Real HRWA archive file set\n" +
+	    								"-- 1716: Small non-HRWA set for testing");
+	        		
+	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
+	    		}
+	        	
+	        }
+	        
 	        if ( cmdLine.hasOption( "maxusableprocessors") ) {
 	        	if( Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" )) > HrwaManager.maxAvailableProcessors ) {
 	        		System.err.println("Error: Supplied command line value for maxusableprocessors (" + Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" )) + ") is greater than the number of available processors on this machine (" + HrwaManager.maxAvailableProcessors + ")");
@@ -287,6 +316,26 @@ public class HrwaManager {
 	        		maxUsableProcessors = Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" ));
 	        		System.out.println("The maximum number of usable processors has been set to: " + HrwaManager.maxUsableProcessors);
 	        	}
+	        }
+	        
+	        if ( cmdLine.hasOption( "mysqlurl") ) {
+	        	mysqlURL = cmdLine.getOptionValue( "mysqlurl" );
+	        	System.out.println("A MySQL URL was supplied.");
+	        }
+	        
+	        if ( cmdLine.hasOption( "mysqldatabase") ) {
+	        	mysqlDatabase = cmdLine.getOptionValue( "mysqldatabase" );
+	        	System.out.println("A MySQL database was supplied.");
+	        }
+	        
+	        if ( cmdLine.hasOption( "mysqlusername") ) {
+	        	mysqlUsername = cmdLine.getOptionValue( "mysqlusername" );
+	        	System.out.println("A MySQL username was supplied.");
+	        }
+	        
+	        if ( cmdLine.hasOption( "mysqlpassword") ) {
+	        	mysqlPassword = cmdLine.getOptionValue( "mysqlpassword" );
+	        	System.out.println("A MySQL password was supplied.");
 	        }
 	        
 	        //Task 1: downloadarchivefiles
@@ -386,14 +435,70 @@ public class HrwaManager {
         options.addOption(
         		OptionBuilder.withArgName( "integer" )
                 .hasArg()
+                .withDescription( "Numeric ID of the Archive-It collection that we want to download from." )
+                .create( "archiveitcollectionid" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "integer" )
+                .hasArg()
                 .withDescription( "The maximum number of processors that should be used by this program. Defaults to (number of processors - 1). Note: Supplied value muse be <= the number of cores available on the machine." )
                 .create( "maxusableprocessors" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "string" )
+                .hasArg()
+                .withDescription( "MySQL URL to connect to." )
+                .create( "mysqlurl" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "string" )
+                .hasArg()
+                .withDescription( "MySQL database to connect to." )
+                .create( "mysqldatabase" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "string" )
+                .hasArg()
+                .withDescription( "MySQL username." )
+                .create( "mysqlusername" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "string" )
+                .hasArg()
+                .withDescription( "MySQL password." )
+                .create( "mysqlpassword" )
         );
         
     }
 	
 	public static String getCurrentAppRunTime() {
 		return "Current run time: " + TimeStringFormat.getTimeString((System.currentTimeMillis() - HrwaManager.appStartTime)/1000);
+	}
+	
+	/**
+	 * Returns a String
+	 * @param fileName
+	 * @return
+	 */
+	public static String[] extractCaptureYearAndMonthStringsFromArchiveFileName(String fileName){
+		
+		Matcher matcher = HrwaManager.ARCHIVE_FILE_DATE_PATTERN.matcher(fileName);
+		
+		if(matcher.matches()) {
+			//Note matcher.group(0) returns the entire matched string 
+			//matcher.group(1) returns the year
+			//matcher.group(2) returns the month
+			String[] arrToReturn = {matcher.group(1), matcher.group(2)}; 
+			return arrToReturn;
+		} else {
+			return null;
+		}
+		
 	}
 
 }

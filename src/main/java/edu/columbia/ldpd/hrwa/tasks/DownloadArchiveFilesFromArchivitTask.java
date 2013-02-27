@@ -31,10 +31,7 @@ import edu.columbia.ldpd.hrwa.HrwaManager;
 public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 	
 	private String archiveFileDownloadDomain = "https://www.archive-it.org";
-	private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=1716"; // temp small subset for testing
-	//private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=1068"; // "human rights" archive collection - just one for now, but allowing for more later on
-	
-	//ARCHIVEIT-1716-SEMIANNUAL-XOYSOA-20121117062101-00002-wbgrp-crawl058.us.archive.org-6680.warc
+	private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=" + HrwaManager.archiveItCollectionId;
 	
 	private static String pathToTempDownloadDir = HrwaManager.tmpDirPath + File.separatorChar + "downloads";
 
@@ -149,12 +146,11 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			}
 			
 			//Extract crawl date from file name
-			Matcher matcher = HrwaManager.ARCHIVE_FILE_DATE_PATTERN.matcher(fileName);
+			String[] captureYearAndMonth = HrwaManager.extractCaptureYearAndMonthStringsFromArchiveFileName(fileName);
 			
-			if(matcher.matches()) {
-				//Note matcher.group(0) returns the entire matched string 
-				captureYearString = matcher.group(1);
-				captureMonthString = matcher.group(2);
+			if(captureYearAndMonth != null) {
+				captureYearString = captureYearAndMonth[0];
+				captureMonthString = captureYearAndMonth[1];
 				
 				//Finally, let's check to see if we've already downloaded this file.  If we have, then we don't want to add it to filesToDownload
 				if( new File(getDestinationDirForArchiveFile(captureYearString, captureMonthString) + File.separator + fileName).exists() ) {

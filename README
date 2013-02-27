@@ -4,4 +4,4 @@ This app will eventually be the main manager for all HRWA archive file downloadi
 
 Minimum JVM requirements:
 
--Xmx6144M (Note: 4096M is not enough because there are archive files to download that at least 1GB in size, and the download+md5 check leads to out of memory errors if you don't allocate enough RAM to the JVM. To be safe, I'm allocating at least 6144M.)
+-Xmx6144M (Note: 4096M is not enough because there are archive files to download that are at least 1GB in size, and the download+md5 check leads to out of memory errors if you don't allocate enough RAM to the JVM. To be safe, I'm allocating at least 6144M.)
