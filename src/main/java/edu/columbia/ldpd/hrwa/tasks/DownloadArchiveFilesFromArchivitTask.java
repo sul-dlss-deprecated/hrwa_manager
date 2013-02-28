@@ -118,8 +118,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			String fileName = null;
 			String downloadUrl = null;
 			String expectedMD5Hash = null;
-			String captureYearString = null;
-			String captureMonthString = null;
+			String captureYearAndMonthString = null;
 			
 			HtmlElement downloadInfoAnchorElement = null;
 			HtmlElement md5InfoTrElement = null;
@@ -146,14 +145,12 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			}
 			
 			//Extract crawl date from file name
-			String[] captureYearAndMonth = HrwaManager.extractCaptureYearAndMonthStringsFromArchiveFileName(fileName);
+			captureYearAndMonthString = HrwaManager.getCaptureYearAndMonthStringFromArchiveFileName(fileName);
 			
-			if(captureYearAndMonth != null) {
-				captureYearString = captureYearAndMonth[0];
-				captureMonthString = captureYearAndMonth[1];
+			if(captureYearAndMonthString != null) {
 				
 				//Finally, let's check to see if we've already downloaded this file.  If we have, then we don't want to add it to filesToDownload
-				if( new File(getDestinationDirForArchiveFile(captureYearString, captureMonthString) + File.separator + fileName).exists() ) {
+				if( new File(getDestinationDirForArchiveFile(captureYearAndMonthString) + File.separator + fileName).exists() ) {
 					HrwaManager.writeToLog("No need to download file [" + downloadUrl + "] because it has already been downloaded.", true, HrwaManager.LOG_TYPE_NOTICE);
 				} else {
 					//File doesn't exist!  We want to download it.
@@ -163,8 +160,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 					archiveFileInfoMap.put("fileName", fileName);
 					archiveFileInfoMap.put("downloadUrl", downloadUrl);
 					archiveFileInfoMap.put("expectedMD5Hash", expectedMD5Hash);
-					archiveFileInfoMap.put("captureYearString", captureYearString);
-					archiveFileInfoMap.put("captureMonthString", captureMonthString);
+					archiveFileInfoMap.put("captureYearAndMonthString", captureYearAndMonthString);
 					
 					filesToDownload.add(archiveFileInfoMap);
 				}
@@ -217,7 +213,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 				downloadFile(webClient, singleArchiveFileInfo.get("downloadUrl"), tempFileDownloadLocation, singleArchiveFileInfo.get("expectedMD5Hash"));
 				
 				//Create final destination directory
-				String destinationDirectory = getDestinationDirForArchiveFile(singleArchiveFileInfo.get("captureYearString"), singleArchiveFileInfo.get("captureMonthString")); 
+				String destinationDirectory = getDestinationDirForArchiveFile(singleArchiveFileInfo.get("captureYearAndMonthString")); 
 				(new File(destinationDirectory)).mkdirs();
 				
 				//Move the fully-downloaded file from the temp directory to its permanent download location
@@ -232,8 +228,8 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 		
 	}
 	
-	private String getDestinationDirForArchiveFile(String captureYearString, String captureMonthString) {
-		return HrwaManager.archiveFileDirPath + File.separator + captureYearString + "_" + captureMonthString;
+	private String getDestinationDirForArchiveFile(String captureYearAndMonthString) {
+		return HrwaManager.archiveFileDirPath + File.separator + captureYearAndMonthString;
 	}
 	
 	private void downloadFile(WebClient webClient, String downloadUrl, String pathToDownloadLocation, String md5HashToValidateAgainst) throws FailingHttpStatusCodeException, MalformedURLException, IOException, NoSuchAlgorithmException {

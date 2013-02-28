@@ -8,10 +8,12 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
@@ -40,7 +42,7 @@ import com.gargoylesoftware.htmlunit.html.DomNodeList;
 import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
-import edu.columbia.ldpd.hrwa.ArchiveRecordProcessorRunnable;
+import edu.columbia.ldpd.hrwa.ArchiveFileProcessorRunnable;
 import edu.columbia.ldpd.hrwa.HrwaManager;
 
 public class ArchiveToMySQLTask extends HrwaTask {
@@ -48,14 +50,14 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	private String[] validArchiveFileExtensions = {"arc.gz", "warc.gz"};
 	
 	//How many threads will we create?  HrwaManager.maxUsableProcessors
-	private ArchiveRecordProcessorRunnable[] archiveRecordProcessorRunnables;
+	private ArchiveFileProcessorRunnable[] archiveRecordProcessorRunnables;
 	Future[] archiveRecordProcessorFutures;
 	ExecutorService fixedThreadPoolExecutorService;
 	
 	private long numArchiveRecordsProcessed = 0;
 
 	public ArchiveToMySQLTask() {
-		archiveRecordProcessorRunnables = new ArchiveRecordProcessorRunnable[HrwaManager.maxUsableProcessors];
+		archiveRecordProcessorRunnables = new ArchiveFileProcessorRunnable[HrwaManager.maxUsableProcessors];
 		archiveRecordProcessorFutures = new Future[HrwaManager.maxUsableProcessors];
 		fixedThreadPoolExecutorService = Executors.newFixedThreadPool(HrwaManager.maxUsableProcessors);
 	}
@@ -83,9 +85,11 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		//Iterate through and process all archive files
 		for(int i = 0; i < numberOfArchiveFilesToProcess; i++) {
 			HrwaManager.writeToLog(	"Processing archive file " + (i+1) + " of " + numberOfArchiveFilesToProcess + "\n" +
-									"-- Name of archive file: " + archiveFilesToProcess[i].getName(), true, HrwaManager.LOG_TYPE_STANDARD);
+									"-- Name of archive file: " + archiveFilesToProcess[i].getName() + "\n" +
+									"-- Total number of relevant archive records processed at this exact moment: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(),
+									true, HrwaManager.LOG_TYPE_STANDARD);
 			
-			numArchiveRecordsProcessed += this.processArchiveFile(archiveFilesToProcess[i]);
+			this.processSingleArchiveFile(archiveFilesToProcess[i]);
 			
 			System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
 			
@@ -111,80 +115,61 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		shutDownArchiveRecordProcessorThreads();
 		
+		HrwaManager.writeToLog("Total number of archive records processed: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(), true, HrwaManager.LOG_TYPE_STANDARD);
+		
 		writeTaskFooterMessageAndPrintTotalTime();
 		
 	}
 	
 	/**
-	 * Processes a single archive file, returning the number of processed archive records contained within that file.
-	 * @return
-	 */
-	public long processArchiveFile(File archiveFile) {
-		
-		//Get the captureYearAndMonth from this file's name
-		String[] captureYearAndMonth = HrwaManager.extractCaptureYearAndMonthStringsFromArchiveFileName(archiveFile.getName());
-		
-		//We need to get an ArchiveReader for this file
-		ArchiveReader archiveReader = null;
-		try {
-			archiveReader = ArchiveReaderFactory.get(archiveFile);
-		} catch (IOException e) {
-			HrwaManager.writeToLog("An error occurred while trying to read in the archive file at " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
-			HrwaManager.writeToLog(e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
-			HrwaManager.writeToLog("Skipping " + archiveFile.getPath() + " due to the read error. Moving on to the next file...", true, HrwaManager.LOG_TYPE_ERROR);
-			return 0;
-		}
-		archiveReader.setDigest(true);
-
-		// Wrap archiveReader in NutchWAX ArcReader class, which converts WARC
-		// records to ARC records on-the-fly, returning null for any records that
-		// are not WARC-Type "response".
-		ArcReader arcReader = new ArcReader(archiveReader);
-		
-		int numberOfArchiveRecordsProcessed = 0;
-		
-		// Loop through all archive records in this file
-		for (ARCRecord arcRecord : arcReader) {
-			//We'll be distributing the processing of these records between multiple threads
-			this.processArchiveRecord(arcRecord);
-			numberOfArchiveRecordsProcessed++;
-		}
-		
-		return numberOfArchiveRecordsProcessed;
-	}
-	
-	/**
-	 * Passes the arcRecord to process to one of the available worker threads.
-	 * If no worker threads are available, we wait until one is available.
+	 * Passes the archiveFile to one of the available ArchiveFileProcessorRunnable worker threads.
+	 * If no worker threads are currently available, this method waits until one is available.
 	 * @param arcRecord
 	 */
-	public void processArchiveRecord(ARCRecord arcRecord) {
+	public void processSingleArchiveFile(File archiveFile) {
 		
 		boolean lookingForAvailableProcessorThread = true;
 		
 		while(lookingForAvailableProcessorThread) {
 		
-			for(ArchiveRecordProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
-				if( ! singleProcessor.isProcessingARecord() ) {
-					singleProcessor.processRecord(arcRecord);
+			for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
+				if( ! singleProcessor.isProcessingAnArchiveFile() ) {
+					HrwaManager.writeToLog("Notice: Archive file claimed by ArchiveFileProcessorRunnable " + singleProcessor.getUniqueRunnableId() + " (" + archiveFile.getName() + ")", true, HrwaManager.LOG_TYPE_NOTICE);
+					singleProcessor.processArchiveFile(archiveFile);
 					lookingForAvailableProcessorThread = false;
+					break;
 				}
 			}
 			
-			try { Thread.sleep(100); System.out.println("Sleeping for 100 ms because no threads are available for processing...");}
+			try {
+				Thread.sleep(5);
+				//System.out.println("Sleeping for 5 ms because no threads are available for processing...");
+			}
 			catch (InterruptedException e) { e.printStackTrace(); }
 			
 		}
+		
 	}
 	
+	public long getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment() {
+		
+		long total = 0;
+		
+		for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
+			total += singleProcessor.getNumRelevantArchiveRecordsProcessed();
+		}
+		
+		return total;
+	}
 	
 	/**
 	 * Returns true if at least one of the processors is still running.
 	 * @return
 	 */
 	public boolean someArchiveRecordProcessorsAreStillRunning() {
-		for(ArchiveRecordProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
-			if(singleProcessor.isProcessingARecord()) {
+		for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
+			if(singleProcessor.isProcessingAnArchiveFile()) {
+				System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running.");
 				return true;
 			}
 		}
@@ -197,7 +182,7 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		for(int i = 0; i < HrwaManager.maxUsableProcessors; i++) {
 			//Create thread
-			archiveRecordProcessorRunnables[i] = new ArchiveRecordProcessorRunnable(i);
+			archiveRecordProcessorRunnables[i] = new ArchiveFileProcessorRunnable(i);
 			
 			//And submit it to the fixedThreadPoolExecutorService so that it will run.
 			//The submit method will return a Future that we can use to check the runnable's
@@ -292,6 +277,12 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		});
 
 	}
+	
+	
+	
+	
+	
+	
 	
 	
 }

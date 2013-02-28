@@ -140,6 +140,13 @@ public class HrwaManager {
 			singleTask.runTask();
 		}
 
+		HrwaManager.writeToLog(
+				"---------------------------------------------\n" +
+				"HRWAManager run complete!\n" + HrwaManager.getCurrentAppRunTime() + "\n" +
+				"---------------------------------------------\n",
+				true,
+				HrwaManager.LOG_TYPE_STANDARD);
+		
 		HrwaManager.closeLogFileWriters();
 		
 		System.out.println(applicationName + ": Done!");
@@ -156,10 +163,14 @@ public class HrwaManager {
 	
 	public static void openLogFileWriters() {
 		try {
-			mysqlErrorLogWriter = new BufferedWriter(new FileWriter(HrwaManager.logDirPath + File.separatorChar + HrwaManager.logFilePrefix + "-" + "erorr-log.txt"));
+			mysqlErrorLogWriter = new BufferedWriter(new FileWriter(HrwaManager.logDirPath + File.separatorChar + HrwaManager.logFilePrefix + "-" + "error-log.txt"));
+			writeToLog("Error log is open.", true, LOG_TYPE_ERROR);
 			mysqlStandardLogWriter = new BufferedWriter(new FileWriter(HrwaManager.logDirPath + File.separatorChar + HrwaManager.logFilePrefix + "-" + "standard-log.txt"));
+			writeToLog("Standard log is open.", true, LOG_TYPE_STANDARD);
 			mysqlNoticeLogWriter = new BufferedWriter(new FileWriter(HrwaManager.logDirPath + File.separatorChar + HrwaManager.logFilePrefix + "-" + "notice-log.txt"));
+			writeToLog("Notice log is open.", true, LOG_TYPE_NOTICE);
 			mysqlMemoryLogWriter = new BufferedWriter(new FileWriter(HrwaManager.logDirPath + File.separatorChar + HrwaManager.logFilePrefix + "-" + "memory-log.txt"));
+			writeToLog("Memory log is open.", true, LOG_TYPE_MEMORY);
 		} catch (IOException e) {
 			System.out.println("Error: Could not create mysql indexer log file(s)");
 			e.printStackTrace();
@@ -480,10 +491,30 @@ public class HrwaManager {
 		return "Current run time: " + TimeStringFormat.getTimeString((System.currentTimeMillis() - HrwaManager.appStartTime)/1000);
 	}
 	
+	public static String getCurrentAppMemoryUsage() {
+		
+		int bytesInAMegabyte = 1048576;
+		
+		return "Current memory usage: " + ((Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/bytesInAMegabyte) + "/" + (maxAvailableMemoryInBytes/bytesInAMegabyte) + " MB";
+	}
+	
 	/**
-	 * Returns a String
+	 * Returns a date string of the format "YYYY_MM" for the given archive file fileName.
+	 * @return A string of the format "YYYY_MM", or null if the fileName cannot be parsed properly.
+	 */
+	public static String getCaptureYearAndMonthStringFromArchiveFileName(String fileName){
+		String[] captureYearAndMonth = extractCaptureYearAndMonthStringsFromArchiveFileName(fileName);
+		if(captureYearAndMonth == null) {
+			return null;
+		} else {
+			return captureYearAndMonth[0] + "_" + captureYearAndMonth[1];
+		}
+	}
+	
+	/**
+	 * Returns a String[] holding the capture year at index [0] and the capture month at index [1].
 	 * @param fileName
-	 * @return
+	 * @return String[] holding the capture year and capture month. Returns null if the file name cannot be parsed properly.
 	 */
 	public static String[] extractCaptureYearAndMonthStringsFromArchiveFileName(String fileName){
 		
