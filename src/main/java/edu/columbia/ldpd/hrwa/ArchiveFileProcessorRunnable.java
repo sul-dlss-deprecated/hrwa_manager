@@ -20,9 +20,15 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	private boolean running = true;
 	private File currentArcFileBeingProcessed = null;
 	private long numRelevantArchiveRecordsProcessed = 0;
+	private final MimetypeDetector mimetypeDetector;
+	private Boolean isProcessingAnArchiveFile = false;
 	
 	public ArchiveFileProcessorRunnable(int uniqueNumericId) {
+		//Assign uniqueNumericId
 		uniqueRunnableId = uniqueNumericId;
+		
+		//Create a MimetypeDetector
+		mimetypeDetector = new MimetypeDetector();
 		
 		//Each processor has its own unique connection to MySQL
 		//TODO: Create MySQL connection
@@ -33,81 +39,101 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	}
 
 	public void run() {
-		while(running) {
+		while(true) {
+			
+			if( ! running ) {
+				break;
+			}
+			
 			if(currentArcFileBeingProcessed != null) {
 				
 				if( ! HrwaManager.previewMode ) {
-					
-					//We need to get an ArchiveReader for this file
-					ArchiveReader archiveReader = null;
-					
-					try {
-						
-						archiveReader = ArchiveReaderFactory.get(currentArcFileBeingProcessed);
-					
-						archiveReader.setDigest(true);
-
-						// Wrap archiveReader in NutchWAX ArcReader class, which converts WARC
-						// records to ARC records on-the-fly, returning null for any records that
-						// are not WARC-Type "response".
-						ArcReader arcReader = new ArcReader(archiveReader);
-						
-						String archiveFileName = currentArcFileBeingProcessed.getName();
-						
-						long memoryLogNotificationCounter = 0;
-						
-						// Loop through all archive records in this file
-						for (ARCRecord arcRecord : arcReader) {
-							
-							if (arcRecord == null) {
-								// WARC records that are not of WARC-Type response will be set to null, and we don't want to analyze these.
-								// Need to check for null.
-								//HrwaManager.writeToLog("Notice: Can't process null record in " + currentArcFileBeingProcessed.getPath(), true, HrwaManager.LOG_TYPE_NOTICE);
-							}
-							else if(arcRecord.getMetaData().getUrl().startsWith("dns:")) {
-								//Do not do mimetype/lang analysis on DNS records
-								//HrwaManager.writeToLog("Notice: Skipping DNS record in " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_NOTICE);
-								//HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsage(), true, HrwaManager.LOG_TYPE_MEMORY);
-							}
-							else
-							{
-								//We'll be distributing the processing of these records between multiple threads
-								this.processSingleArchiveRecord(arcRecord, archiveFileName);
-								
-								this.numRelevantArchiveRecordsProcessed++;
-								System.out.println("Thread " + uniqueRunnableId + " records processed: " + this.numRelevantArchiveRecordsProcessed);
-							}
-							
-							//Every x number of records, print a line in the memory log to keep track of memory consumption over time
-							if(memoryLogNotificationCounter > 1500) {
-								HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsage(), true, HrwaManager.LOG_TYPE_MEMORY);
-								memoryLogNotificationCounter = 0;
-							} else {
-								memoryLogNotificationCounter++;
-							}
-						}
-					
-					} catch (IOException e) {
-						HrwaManager.writeToLog("An error occurred while trying to read in the archive file at " + currentArcFileBeingProcessed.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
-						HrwaManager.writeToLog(e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
-						HrwaManager.writeToLog("Skipping " + currentArcFileBeingProcessed.getPath() + " due to the read error. Moving on to the next file...", true, HrwaManager.LOG_TYPE_ERROR);
-					} finally {
-						try {
-							archiveReader.close();
-						} catch (IOException e) {
-							HrwaManager.writeToLog("An error occurred while trying to close the ArchiveReader for file: " + currentArcFileBeingProcessed.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
-							e.printStackTrace();
-						}
-					}
+					processArchiveFile(currentArcFileBeingProcessed);
 				}
 				
-				currentArcFileBeingProcessed = null; //done processing!
+				//done processing!
+				synchronized (isProcessingAnArchiveFile) {
+					currentArcFileBeingProcessed = null;
+					isProcessingAnArchiveFile = false;
+				}
 				//System.out.println("Thread " + this.uniqueRunnableId + ": Finished processing.");
 				
 			} else {
 				//Sleep when not actively processing anything
 				try { Thread.sleep(5); }
 				catch (InterruptedException e) { e.printStackTrace(); }
+			}
+			
+		}
+		
+		System.out.println("THREAD " + getUniqueRunnableId() + " COMPLETE!");
+	}
+	
+	public void processArchiveFile(File archiveFile) {
+		//We need to get an ArchiveReader for this file
+		ArchiveReader archiveReader = null;
+		
+		try {
+			
+			archiveReader = ArchiveReaderFactory.get(archiveFile);
+		
+			archiveReader.setDigest(true);
+
+			// Wrap archiveReader in NutchWAX ArcReader class, which converts WARC
+			// records to ARC records on-the-fly, returning null for any records that
+			// are not WARC-Type "response".
+			ArcReader arcReader = new ArcReader(archiveReader);
+			
+			String archiveFileName = archiveFile.getName();
+			
+			long memoryLogNotificationCounter = 0;
+			
+			// Loop through all archive records in this file
+			for (ARCRecord arcRecord : arcReader) {
+				
+				if( numRelevantArchiveRecordsProcessed == 530 ) {
+					System.out.println("We're about to crash! File info below for 530:");
+					System.out.println(arcRecord.getMetaData().getOffset());
+				}
+				
+				if (arcRecord == null) {
+					// WARC records that are not of WARC-Type response will be set to null, and we don't want to analyze these.
+					// Need to check for null.
+					//HrwaManager.writeToLog("Notice: Can't process null record in " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_NOTICE);
+				}
+				else if(arcRecord.getMetaData().getUrl().startsWith("dns:")) {
+					//Do not do mimetype/lang analysis on DNS records
+					//HrwaManager.writeToLog("Notice: Skipping DNS record in " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_NOTICE);
+					//HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsage(), true, HrwaManager.LOG_TYPE_MEMORY);
+				}
+				else
+				{
+					//We'll be distributing the processing of these records between multiple threads
+					this.processSingleArchiveRecord(arcRecord, archiveFileName);
+					
+					this.numRelevantArchiveRecordsProcessed++;
+					System.out.println("Thread " + uniqueRunnableId + " records processed: " + this.numRelevantArchiveRecordsProcessed);
+				}
+				
+				//Every x number of records, print a line in the memory log to keep track of memory consumption over time
+				if(memoryLogNotificationCounter > 1500) {
+					HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsage(), true, HrwaManager.LOG_TYPE_MEMORY);
+					memoryLogNotificationCounter = 0;
+				} else {
+					memoryLogNotificationCounter++;
+				}
+			}
+		
+		} catch (IOException e) {
+			HrwaManager.writeToLog("An error occurred while trying to read in the archive file at " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog(e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog("Skipping " + archiveFile.getPath() + " due to the read error. Moving on to the next file...", true, HrwaManager.LOG_TYPE_ERROR);
+		} finally {
+			try {
+				archiveReader.close();
+			} catch (IOException e) {
+				HrwaManager.writeToLog("An error occurred while trying to close the ArchiveReader for file: " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
+				e.printStackTrace();
 			}
 		}
 	}
@@ -128,21 +154,30 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	
 		ARCRecordMetaData arcRecordMetaData = arcRecord.getMetaData();
 		
-		//Step 1: Create blob file
+		//Step 1: Create .blob file and .blob.header file
 		String fullPathToNewlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
 		
 		//Step 2: Run mimetype detection on blob file - Mimetype detection with Tika 1.2 is thread-safe.
-		
+		String detectedMimetype = mimetypeDetector.getMimetype(new File(fullPathToNewlyCreatedBlobFile));
+		//System.out.println("Detected mimetype: " + detectedMimetype);
 		
 		//Step 3: Insert all info into MySQL
 	}
 	
 	public void stop() {
+		System.out.println("STOP was called on Thread " + getUniqueRunnableId());
 		running = false;
 	}
 	
 	public boolean isProcessingAnArchiveFile() {
-		return (currentArcFileBeingProcessed != null);
+		
+		boolean bool;
+		
+		synchronized (isProcessingAnArchiveFile) {
+			bool = isProcessingAnArchiveFile;
+		}
+		
+		return bool;
 	}
 
 	/**
@@ -151,11 +186,14 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	 * This function returns almost immediately.  Actual processing happens asynchronously.
 	 * @param archiveFile
 	 */
-	public void processArchiveFile(File archiveFile) {
+	public void queueArchiveFileForProcessing(File archiveFile) {
 		if(currentArcFileBeingProcessed != null) {
 			HrwaManager.writeToLog("Error: ArchiveRecordProcessorRunnable with id " + this.uniqueRunnableId + " cannot accept a new ARCRecord to process because isProcessingARecord == true. This error should never appear if things were coded properly.", true, HrwaManager.LOG_TYPE_ERROR);
 		} else {
-			currentArcFileBeingProcessed = archiveFile;
+			synchronized (isProcessingAnArchiveFile) {
+				currentArcFileBeingProcessed = archiveFile;
+				isProcessingAnArchiveFile = true;
+			}
 			//System.out.println("Thread " + this.uniqueRunnableId + ": Just started processing.");
 		}
 	}
@@ -203,7 +241,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
             HrwaManager.writeToLog("Error: Could not write file (" + blob_path_with_header_extension + ") to disk.", true, HrwaManager.LOG_TYPE_ERROR);
         }
         
-		
 		return fullPathToNewBlobFile;			
 	}
 	

@@ -209,5 +209,24 @@ public class MimetypeDetectorTest {
 		System.out.println("-- Multithreaded distribution between " + numThreadsToCreateForMultithreadedTest + " threads: " + multiThreadedRunTime + " ms");
 		
 	}
+	
+	@Test
+	public void whyDoesTikaCrashWhenMimetypeDetectingThisFileDuringRegularProcessingWhenUsingTikaFromMavenAndNotWhenUsingASeparatelyDownloadedAndIncludedTikaJarFile() {
+		InputStream is = this.getClass().getResourceAsStream("/mimetype_detector/this_word_doc_crashes_tika_during_mimetype_detection.doc");
+		String[] expectedMimetypes = {"application/msword"};
+		
+		String actualMimetype = new MimetypeDetector().getMimetype(is, "this_word_doc_crashes_tika_during_mimetype_detection.doc");
+		//Close input stream
+		try { is.close(); }
+		catch (IOException e) { e.printStackTrace(); }
+		//System.out.println("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype);
+		assertTrue("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype, Arrays.asList(expectedMimetypes).contains(actualMimetype));
+		
+		//File test
+		File file = new File("./src/test/resources/mimetype_detector/this_word_doc_crashes_tika_during_mimetype_detection.doc");
+		actualMimetype = new MimetypeDetector().getMimetype(file);
+		//System.out.println("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype);
+		assertTrue("Expected one of: " + Arrays.deepToString(expectedMimetypes) + ", Received: " + actualMimetype, Arrays.asList(expectedMimetypes).contains(actualMimetype));
+	}
 
 }

@@ -89,7 +89,7 @@ public class ArchiveToMySQLTask extends HrwaTask {
 									"-- Total number of relevant archive records processed at this exact moment: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(),
 									true, HrwaManager.LOG_TYPE_STANDARD);
 			
-			this.processSingleArchiveFile(archiveFilesToProcess[i]);
+			processSingleArchiveFile(archiveFilesToProcess[i]);
 			
 			System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
 			
@@ -105,7 +105,7 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		HrwaManager.writeToLog("Allowing processors to complete their final tasks...", true, HrwaManager.LOG_TYPE_STANDARD);
 		while( someArchiveRecordProcessorsAreStillRunning() ) {
 			try {
-				System.out.println("Waiting for task completion before shut down...");
+				System.out.println("Waiting for final archive file processing to complete before shut down...");
 				Thread.sleep(1000);
 			}
 			catch (InterruptedException e) { e.printStackTrace(); }
@@ -132,18 +132,22 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		while(lookingForAvailableProcessorThread) {
 		
-			for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
-				if( ! singleProcessor.isProcessingAnArchiveFile() ) {
-					HrwaManager.writeToLog("Notice: Archive file claimed by ArchiveFileProcessorRunnable " + singleProcessor.getUniqueRunnableId() + " (" + archiveFile.getName() + ")", true, HrwaManager.LOG_TYPE_NOTICE);
-					singleProcessor.processArchiveFile(archiveFile);
+			for(ArchiveFileProcessorRunnable singleProcessorRunnable : archiveRecordProcessorRunnables) {
+				if( ! singleProcessorRunnable.isProcessingAnArchiveFile() ) {
+					HrwaManager.writeToLog("Notice: Archive file claimed by ArchiveFileProcessorRunnable " + singleProcessorRunnable.getUniqueRunnableId() + " (" + archiveFile.getName() + ")", true, HrwaManager.LOG_TYPE_NOTICE);
 					lookingForAvailableProcessorThread = false;
+					
+					singleProcessorRunnable.queueArchiveFileForProcessing(archiveFile);
+					//Uncomment the line below to perform single-threaded processing (by directly calling the processArchiveFile() method)
+					//If you do uncomment this line, then you should uncomment the line above (for queueing archive file processing)
+					//singleProcessorRunnable.processArchiveFile(archiveFile);
 					break;
 				}
 			}
 			
 			try {
-				Thread.sleep(5);
-				//System.out.println("Sleeping for 5 ms because no threads are available for processing...");
+				Thread.sleep(10);
+				//System.out.println("Sleeping for X ms because no threads are available for processing...");
 			}
 			catch (InterruptedException e) { e.printStackTrace(); }
 			
@@ -169,7 +173,7 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	public boolean someArchiveRecordProcessorsAreStillRunning() {
 		for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
 			if(singleProcessor.isProcessingAnArchiveFile()) {
-				System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running.");
+				//System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running. --> " + singleProcessor.getNumRelevantArchiveRecordsProcessed());
 				return true;
 			}
 		}
@@ -195,9 +199,10 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	
 	public void shutDownArchiveRecordProcessorThreads() {
 		
-		for(int i = 0; i < HrwaManager.maxUsableProcessors; i++) {
+		for(ArchiveFileProcessorRunnable singleRunnable : archiveRecordProcessorRunnables) {
 			//Shut down each of the runnables
-			archiveRecordProcessorRunnables[i].stop();
+			singleRunnable.stop();
+			System.out.println("STOPPING RUNNABLE!");
 		}
 		
 		//Shut down the executor service
