@@ -142,7 +142,7 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		}
         
         try {
-			MySQLHelper.createRelatedHostsTableIfItDoesNotExist();
+			MySQLHelper.refreshRelatedHostsTable();
 		} catch (SQLException e) {
 			HrwaManager.writeToLog("Error: Could not create the MySQL related hosts tables.", true, HrwaManager.LOG_TYPE_ERROR);
 		}

@@ -1,5 +1,7 @@
 package edu.columbia.ldpd.hrwa.mysql;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -10,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Scanner;
 
 import org.apache.commons.lang.StringUtils;
 
@@ -19,9 +22,9 @@ import edu.columbia.ldpd.hrwa.HrwaSiteRecord;
 
 public class MySQLHelper {
 	
-	public static final String HRWA_MANAGER_FSF_TODO_DELETE = "DELETE";
-	public static final String HRWA_MANAGER_FSF_TODO_UPDATED = "UPDATED";
-	public static final String HRWA_MANAGER_FSF_TODO_FIELD_NAME = "hrwa_manager_fsf_todo";
+	public static final String HRWA_MANAGER_TODO_DELETE = "DELETE";
+	public static final String HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR = "PUSH_CHANGES_TO_SOLR";
+	public static final String HRWA_MANAGER_TODO_FIELD_NAME = "hrwa_manager_todo";
 	
 	public static Connection getNewDBConnection(boolean autoCommit) {
 
@@ -68,7 +71,7 @@ public class MySQLHelper {
 			"  `offset_in_archive_file` bigint(20) unsigned NOT NULL COMMENT 'This is the byte offset address of the record in the archive file.'," +
 			"  `length` bigint(20) unsigned NOT NULL COMMENT 'Size of the content returned in the HTTP response in bytes. Largest will probably be video.'," +
 			"  `record_date` char(14) NOT NULL COMMENT 'Crawl date for this record.'," +
-			"  `blob_path` varchar(500) NOT NULL COMMENT 'Filesystem path to the blob data associated with this record.  Header info is the blob_path + \".header\"'," +
+			"  `blob_path` varchar(500) NOT NULL COMMENT 'Filesystem path to the blob data associated with this record.  Header info is the blob_path + .header'," +
 			"  `mimetype_from_header` varchar(255) DEFAULT NULL COMMENT 'Mimetype defined in the archive file header.'," +
 			"  `mimetype_detected` varchar(100) DEFAULT NULL COMMENT 'Mimetype detected by our archive_to_mysql indexer, using Apache Tika.  NULL if mimetype could not be detected.'," +
 			"  `mimetype_code` varchar(100) DEFAULT NULL COMMENT 'Custom, human-made mimetype code that might (1) place several mimetypes into a logical group (i.e. Microsoft Excel Document) or (2) translate long, unwieldy mimetypes into shorter-named, cleaner-looking ones.'," +
@@ -77,19 +80,12 @@ public class MySQLHelper {
 			"  `archived_url` varchar(2200) DEFAULT NULL COMMENT 'Wayback url to this archive record.  Note that this url includes the record_identifier.'," +
 			"  `status_code` int(3) NOT NULL COMMENT 'HTTP response status code at record crawl time.'," +
 			"  `hoststring` varchar(255) DEFAULT NULL COMMENT 'Truncated url, only including hostname and removing www, www1, www2, etc. if present.'," +
-			"  `site_id` smallint(5) unsigned NOT NULL COMMENT 'Foreign key to sites table, linking this record to a recognized website (or to a catch-all unknown site record in the sites table).'," +
+			"  `site_id` smallint(5) unsigned DEFAULT NULL COMMENT 'Foreign key to sites table, linking this record to a recognized website (or NULL if there is no match with a site record in the sites table).'," +
 			"  `load_timestamp` bigint(20) NOT NULL COMMENT 'Timestamp indicating when this record was indexed and inserted into mysql.'," +
-			"  `rd_subject` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Subject information.'," +
-			"  `rd_description` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Description'," +
-			"  `rd_comments` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Comments'," +
-			"  `rd_author` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Author'," +
-			"  `rd_keywords` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Keywords'," +
-			"  `rd_category` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Category'," +
-			"  `rd_content_type` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Content type'," +
-			"  `rd_last_modified` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Last modified'," +
-			"  `rd_links` varchar(255) DEFAULT NULL COMMENT 'Rich document data field (if available): Links'," +
-			"  `hrwa_manager_asf_todo` varchar(50) DEFAULT NULL," +
+			"  `linked_via_related_host` tinyint(1) NOT NULL," +
+			"  `hrwa_manager_todo` varchar(50) DEFAULT NULL," +
 			"  PRIMARY KEY (`id`)," +
+			"  UNIQUE KEY `archive_file_and_offset` (`archive_file`,`offset_in_archive_file`)," +
 			"  KEY `mimetype_from_header` (`mimetype_from_header`)," +
 			"  KEY `mimetype_detected` (`mimetype_detected`)," +
 			"  KEY `status_code` (`status_code`)," +
@@ -97,8 +93,10 @@ public class MySQLHelper {
 			"  KEY `site_id` (`site_id`)," +
 			"  KEY `mimetype_code` (`mimetype_code`)," +
 			"  KEY `record_date` (`record_date`)," +
-			"  KEY `hrwa_manager_asf_todo` (`hrwa_manager_asf_todo`)" +
-			") ENGINE=InnoDB  DEFAULT CHARSET=utf8 AUTO_INCREMENT=0;"
+			"  KEY `linked_via_related_host` (`linked_via_related_host`)," +
+			"  KEY `hrwa_manager_todo` (`hrwa_manager_todo`)," +
+			"  KEY `archive_file` (`archive_file`)" +
+			") ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;"
 		);
 		
 		pstmt0.execute();
@@ -122,7 +120,7 @@ public class MySQLHelper {
 			"  `language` varchar(2000) NOT NULL," +
 			"  `original_urls` varchar(2000) NOT NULL," +
 			"  `marc_005_last_modified` char(16) NOT NULL," +
-			"  `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "` varchar(50) DEFAULT NULL," +
+			"  `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "` varchar(50) DEFAULT NULL," +
 			"  PRIMARY KEY (`id`)," +
 			"  UNIQUE KEY `bib_key` (`bib_key`)," +
 			"  KEY `creator_name` (`creator_name`)," +
@@ -132,7 +130,7 @@ public class MySQLHelper {
 			"  KEY `geographic_focus` (`geographic_focus`(255))," +
 			"  KEY `language` (`language`(255))," +
 			"  KEY `original_urls` (`original_urls`(255))," +
-			"  KEY `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "` (`" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "`)" +
+			"  KEY `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "` (`" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "`)" +
 			") ENGINE=InnoDB  DEFAULT CHARSET=utf8 AUTO_INCREMENT=2;" //2 is important here! We want to save room for id=1 for 
 		);
 		
@@ -147,10 +145,10 @@ public class MySQLHelper {
 		
 		PreparedStatement pstmt0 = conn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + "` (" +
-			"`archive_file_name` varchar(255) NOT NULL," +
-			"`crawl_year_and_month` int(7) NOT NULL," +
-			"PRIMARY KEY (`archive_file_name`)," +
-			"KEY `crawl_year_and_month` (`crawl_year_and_month`)" +
+			"  `archive_file_name` varchar(255) NOT NULL," +
+			"  `crawl_year_and_month` varchar(7) NOT NULL," +
+			"  PRIMARY KEY (`archive_file_name`)," +
+			"  KEY `crawl_year_and_month` (`crawl_year_and_month`)" +
 			") ENGINE=InnoDB DEFAULT CHARSET=utf8;"
 		);
 		
@@ -316,12 +314,21 @@ public class MySQLHelper {
 	 * https://wiki.cul.columbia.edu/display/webresourcescollection/Related+hosts+for+HRWA+portal
 	 * @throws SQLException
 	 */
-	public static void createRelatedHostsTableIfItDoesNotExist() throws SQLException{
+	public static void refreshRelatedHostsTable() throws SQLException{
 
 		Connection conn = getNewDBConnection(true);
 		
+		//Drop table
 		PreparedStatement pstmt0 = conn.prepareStatement(
-			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (" +
+			"DROP TABLE IF EXISTS `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "`;"
+		);
+		
+		pstmt0.execute();
+		pstmt0.close();
+			
+		//Create table
+		PreparedStatement pstmt1 = conn.prepareStatement(
+			"CREATE TABLE `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (" +
 			"  `site_id` int(10) unsigned NOT NULL," +
 			"  `related_host` varchar(255) NOT NULL," +
 			"  UNIQUE KEY `related_host` (`related_host`)," +
@@ -329,49 +336,30 @@ public class MySQLHelper {
 			") ENGINE=InnoDB DEFAULT CHARSET=utf8;"
 		);
 		
-		pstmt0.execute();
-		pstmt0.close();
+		pstmt1.execute();
+		pstmt1.close();
 		
 		//And now we need to verify that there aren't any records in this table (if it already existed)
 		
-		PreparedStatement pstmt1 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME);
-		ResultSet resultSet = pstmt1.executeQuery();
+		PreparedStatement pstmt2 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME);
+		ResultSet resultSet = pstmt2.executeQuery();
 		if (resultSet.next()) {
 			if(resultSet.getInt(1) == 0) {
 				
 				HashMap<String, String> seedsToRelatedHostsMap = new HashMap<String, String>();
 				
-				seedsToRelatedHostsMap.put("achrs.org", "www.achrs.com");
-				seedsToRelatedHostsMap.put("amnistia.org.mx", "alzatuvoz.org");
-				seedsToRelatedHostsMap.put("bahrainrights.org", "bahrainrights.hopto.org/ar");
-				seedsToRelatedHostsMap.put("camp.org.pk", "www.understandingfata.org");
-				seedsToRelatedHostsMap.put("child-soldiers.org", "childsoldiersglobalreport.org");
-				seedsToRelatedHostsMap.put("chrrmw.org", "chrr.ultinets.net");
-				seedsToRelatedHostsMap.put("crisisgroup.org", "www.crisisgroup.be");
-				seedsToRelatedHostsMap.put("eaaf.typepad.com", "eaaf.typepad.org");
-				seedsToRelatedHostsMap.put("eaaf.typepad.com", "eaaf.org/eaaf/styles");
-				seedsToRelatedHostsMap.put("fohrid.org.np", "www.fohrid.org/dwn/");
-				seedsToRelatedHostsMap.put("hrc.co.nz", "hrc.co.nz.woopra-ns.com");
-				seedsToRelatedHostsMap.put("hrforumzim.org", "hrforumzim.huritech.org");
-				seedsToRelatedHostsMap.put("humanrights.dk", "menneskeret.dk");
-				seedsToRelatedHostsMap.put("ifhhro.org", "ifhhro-training-manual.org");
-				seedsToRelatedHostsMap.put("minorityrights.org", "minorityrights.wordpress.com");
-				seedsToRelatedHostsMap.put("observatorio.cl", "observatorio.cl.pampa.avnam.net");
-				seedsToRelatedHostsMap.put("observatorio.cl", "www.monitoreandoderechos.cl");
-				seedsToRelatedHostsMap.put("ombudsman.mk", "smultimedia.dynalias.net/Ombudsman/");
-				seedsToRelatedHostsMap.put("ombudsman.mk", "ombudsman.mk/upload/documents/");
-				seedsToRelatedHostsMap.put("physiciansforhumanrights.org", "phrtorturepapers.org");
-				seedsToRelatedHostsMap.put("publicverdict.org", "eng.publicverdict.ru");
-				seedsToRelatedHostsMap.put("rdc-viol.org", "www.rdcviolencesexuelle.org");
-				seedsToRelatedHostsMap.put("savetibet.org", "www.savetibet.fr");
-				seedsToRelatedHostsMap.put("savetibet.org", "savetibet.nl");
-				seedsToRelatedHostsMap.put("savetibet.org", "www.liaowangxizang.net");
-				seedsToRelatedHostsMap.put("savetibet.org", "savetibet.us");
-				seedsToRelatedHostsMap.put("savetibet.org", "www.savetibet.de");
-				seedsToRelatedHostsMap.put("shovrimshtika.org", "breakingthesilence.org.il");
-				seedsToRelatedHostsMap.put("sova-center.ru", "sova-center.livejournal.com");
-				seedsToRelatedHostsMap.put("sudanhumanrights.blogspot.com", "sudanmonitor.blogspot.com");
-				seedsToRelatedHostsMap.put("woeser.middle-way.net", "woeser-weise.blogspot.com");
+				//We'll get the set of related hosts from the related hosts file
+				try {
+					Scanner relatedHostsScanner = new Scanner(new File(HrwaManager.pathToRelatedHostsFile));
+					while (relatedHostsScanner.hasNextLine())
+					{
+					    String[] siteAndRelatedHostParts = relatedHostsScanner.nextLine().split(",");
+					    seedsToRelatedHostsMap.put(siteAndRelatedHostParts[0], siteAndRelatedHostParts[1]);
+					}
+				} catch (FileNotFoundException e) {
+					HrwaManager.writeToLog("Error: Could not find related hosts file at: " + HrwaManager.pathToRelatedHostsFile, true, HrwaManager.LOG_TYPE_ERROR);
+					System.exit(HrwaManager.EXIT_CODE_ERROR);
+				}
 				
 				//Link site table ids to related host values
 				
@@ -403,14 +391,14 @@ public class MySQLHelper {
 				//And remove the last comma because it's not valid
 				relatedHostRecordsInsertStatement = relatedHostRecordsInsertStatement.substring(0, relatedHostRecordsInsertStatement.length()-1);
 				
-				PreparedStatement pstmt2 = conn.prepareStatement(relatedHostRecordsInsertStatement);
+				PreparedStatement pstmt3 = conn.prepareStatement(relatedHostRecordsInsertStatement);
 				
-				pstmt2.execute();
-				pstmt2.close();
+				pstmt3.execute();
+				pstmt3.close();
 			}
 		 }
         
-		pstmt1.close();
+		pstmt2.close();
 		
         conn.close();
 	}
@@ -526,7 +514,7 @@ public class MySQLHelper {
 					//Add new records
 					PreparedStatement pstmt1 = conn.prepareStatement(
 							"INSERT INTO `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
-							"(`bib_key`, `creator_name`, `hoststring`, `organization_type`, `organization_based_in`, `geographic_focus`, `language`, `original_urls`, `marc_005_last_modified`, `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "`) " +
+							"(`bib_key`, `creator_name`, `hoststring`, `organization_type`, `organization_based_in`, `geographic_focus`, `language`, `original_urls`, `marc_005_last_modified`, `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "`) " +
 							"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 					);
 					
@@ -541,7 +529,7 @@ public class MySQLHelper {
 						pstmt1.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
 						pstmt1.setString(8, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
 						pstmt1.setString(9, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
-						pstmt1.setString(10, MySQLHelper.HRWA_MANAGER_FSF_TODO_UPDATED);
+						pstmt1.setString(10, MySQLHelper.HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR);
 						
 						pstmt1.execute();
 					}
@@ -557,7 +545,7 @@ public class MySQLHelper {
 							"UPDATE `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
 							"SET `creator_name` = ?, `hoststring` = ?, " +
 							"`organization_type` = ?, `organization_based_in` = ?, `geographic_focus` = ?, " +
-							" `language` = ?, `original_urls` = ?, `marc_005_last_modified` = ?, `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "` = ? " +
+							" `language` = ?, `original_urls` = ?, `marc_005_last_modified` = ?, `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "` = ? " +
 							"WHERE bib_key = ?;"
 					);
 					
@@ -570,7 +558,7 @@ public class MySQLHelper {
 						pstmt2.setString(6, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
 						pstmt2.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
 						pstmt2.setString(8, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
-						pstmt2.setString(9, MySQLHelper.HRWA_MANAGER_FSF_TODO_UPDATED);
+						pstmt2.setString(9, MySQLHelper.HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR);
 						pstmt2.setString(10, singleRecord.getSingleValuedFieldValue("bib_key"));
 						
 						System.out.println("Updating bib_key record " + singleRecord.getSingleValuedFieldValue("bib_key") + " with value: " + singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
@@ -633,7 +621,7 @@ public class MySQLHelper {
 			
 			try {
 				Connection conn = MySQLHelper.getNewDBConnection(false);
-				PreparedStatement pstmt = conn.prepareStatement("UPDATE " + HrwaManager.MYSQL_SITES_TABLE_NAME + " SET " + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_FSF_TODO_DELETE + "' WHERE bib_key IN (" + commaDelimitedBibKeys + ");");
+				PreparedStatement pstmt = conn.prepareStatement("UPDATE " + HrwaManager.MYSQL_SITES_TABLE_NAME + " SET " + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_DELETE + "' WHERE bib_key IN (" + commaDelimitedBibKeys + ");");
 				pstmt.execute();
 		        pstmt.close();
 		        conn.commit();
@@ -645,6 +633,32 @@ public class MySQLHelper {
 			}
 		}
 		
+	}
+	
+	public static boolean archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(String nameOfArchiveFile) {
+
+		try {
+			Connection conn = getNewDBConnection(true);
+			
+			PreparedStatement pstmt1 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + " WHERE archive_file_name = ?");
+			pstmt1.setString(1, nameOfArchiveFile);
+			ResultSet resultSet = pstmt1.executeQuery();
+			if (resultSet.next()) {
+				if(resultSet.getInt(1) == 1) {
+					return true;
+				}
+			 }
+	        
+			pstmt1.close();
+	        conn.close();
+        
+		} catch (SQLException e) {
+			HrwaManager.writeToLog("An error occurred while checking the fully indexed archive files table to see if the following archive file has already been indexed: " + nameOfArchiveFile, true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+			System.exit(0);
+	}
+        
+        return false;
 	}
 
 }

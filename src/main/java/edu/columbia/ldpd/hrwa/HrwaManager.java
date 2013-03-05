@@ -60,6 +60,7 @@ public class HrwaManager {
 	public static String		mysqlDatabase		= ""; //default, should be overridden
 	public static String		mysqlUsername		= ""; //default, should be overridden
 	public static String		mysqlPassword		= ""; //default, should be overridden
+	public static String		pathToRelatedHostsFile = ""; //default, should be overridden
 	
 	public static final String		MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME			= "web_archive_records";
 	public static final String		MYSQL_MIMETYPE_CODES_TABLE_NAME					= "mimetype_codes";
@@ -69,6 +70,7 @@ public class HrwaManager {
 	public static int				mysqlCommitBatchSize							= 1000; //default, can be overridden
 	
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
+	public static long maxMemoryThresholdInBytesForStartingNewThreadProcesses = (int)(maxAvailableMemoryInBytes*.75); //default, might be overridden
 	
 	//Shared constants
 	public static final Pattern ARCHIVE_FILE_DATE_PATTERN = Pattern.compile(".+-(\\d{4})(\\d{2})\\d{2}\\d{2}\\d{2}\\d{2}-.+"); //Sample: //ARCHIVEIT-1716-SEMIANNUAL-XOYSOA-20121117062101-00002-wbgrp-crawl058.us.archive.org-6680.warc
@@ -97,6 +99,10 @@ public class HrwaManager {
 			e.printStackTrace();
 		}
 		
+		System.out.println("Free memory: " + Runtime.getRuntime().freeMemory());
+		System.out.println("Total memory: " + Runtime.getRuntime().totalMemory());
+		System.out.println("Max memory: " + Runtime.getRuntime().maxMemory());
+		
 		System.out.println("Application " + applicationName + ": start!");
 		System.out.println("Path to jar file: " + HrwaManager.pathToThisRunningJarFile);
 		
@@ -115,9 +121,10 @@ public class HrwaManager {
 		
 		//Print out max memory allocated to this process
 		
-		HrwaManager.writeToLog("Max Available Memory: " + (maxAvailableMemoryInBytes / (1024*1024)) + " MB", true, LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Max Available Memory: " + bytesToMegabytes(maxAvailableMemoryInBytes) + " MB", true, LOG_TYPE_STANDARD);
 		HrwaManager.writeToLog("Max Available Processors: " + maxAvailableProcessors, true, LOG_TYPE_STANDARD);
 		HrwaManager.writeToLog("Max USABLE Processors (based on default value or user preferences): " + maxUsableProcessors, true, LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Max memory threshhold for starting new thread processes: " + HrwaManager.bytesToMegabytes(maxMemoryThresholdInBytesForStartingNewThreadProcesses) + " MB)", true, LOG_TYPE_STANDARD);
 		
 		//Add preview mode notation to log if in previewMode
 		if(previewMode) {
@@ -282,6 +289,13 @@ public class HrwaManager {
 	        	archiveFileDirPath = cmdLine.getOptionValue( "archivefiledir" );
 	        	System.out.println("Archive File Directory: " + archiveFileDirPath);
 	        }
+	        
+	        if ( cmdLine.hasOption( "relatedhostsfile") ) {
+	        	pathToRelatedHostsFile = cmdLine.getOptionValue( "relatedhostsfile" );
+	        	System.out.println("Related hosts file location: " + pathToRelatedHostsFile);
+	        } else {
+	        	HrwaManager.writeToLog("Error: A related hosts file is required (command line option --relatedhostsfile).", true, HrwaManager.LOG_TYPE_ERROR);
+	        }
 
 	        if ( cmdLine.hasOption( "logfileprefix") ) {
 	        	logFilePrefix = cmdLine.getOptionValue( "logfileprefix" );
@@ -336,6 +350,11 @@ public class HrwaManager {
 	        		maxUsableProcessors = Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" ));
 	        		System.out.println("The maximum number of usable processors has been set to: " + HrwaManager.maxUsableProcessors);
 	        	}
+	        }
+	        
+	        if ( cmdLine.hasOption( "maxmemorythresholdpercentageforstartingnewthreadprocesses") ) {
+        		maxMemoryThresholdInBytesForStartingNewThreadProcesses = (long)(HrwaManager.maxAvailableMemoryInBytes*(Double.parseDouble("." + cmdLine.getOptionValue( "maxmemorythresholdpercentageforstartingnewthreadprocesses" ))));
+        		System.out.println("The maximum memory threshold for starting new thread processes has been set to: " + HrwaManager.bytesToMegabytes(maxMemoryThresholdInBytesForStartingNewThreadProcesses) + " MB");
 	        }
 	        
 	        if ( cmdLine.hasOption( "mysqlurl") ) {
@@ -449,6 +468,13 @@ public class HrwaManager {
         );
         
         options.addOption(
+        		OptionBuilder.withArgName( "file" )
+                .hasArg()
+                .withDescription( "File that contains related hosts into for the related hosts table." )
+                .create( "relatedhostsfile" )
+        );
+        
+        options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "Username required for logging into the Archive-It website and downloading archive files." )
@@ -474,6 +500,13 @@ public class HrwaManager {
                 .hasArg()
                 .withDescription( "The maximum number of processors that should be used by this program. Defaults to (number of processors - 1). Note: Supplied value muse be <= the number of cores available on the machine." )
                 .create( "maxusableprocessors" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "integer" )
+                .hasArg()
+                .withDescription( "The maximum memory threshold percentage for starting new thread processes. Defaults to 75% of the RAM allocated to this java process. Note: Supplied value should be between 50 (%) and 100 (%)." )
+                .create( "maxmemorythresholdpercentageforstartingnewthreadprocesses" )
         );
         
         options.addOption(
@@ -517,11 +550,15 @@ public class HrwaManager {
 		return "Current run time: " + TimeStringFormat.getTimeString((System.currentTimeMillis() - HrwaManager.appStartTime)/1000);
 	}
 	
-	public static String getCurrentAppMemoryUsage() {
+	public static long getCurrentAppMemoryUsageInBytes() {
+		return Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+	}
+	
+	public static String getCurrentAppMemoryUsageString() {
 		
 		int bytesInAMegabyte = 1048576;
 		
-		return "Current memory usage: " + ((Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory())/bytesInAMegabyte) + "/" + (maxAvailableMemoryInBytes/bytesInAMegabyte) + " MB";
+		return "Current memory usage: " + (getCurrentAppMemoryUsageInBytes()/bytesInAMegabyte) + "/" + (maxAvailableMemoryInBytes/bytesInAMegabyte) + " MB";
 	}
 	
 	/**
@@ -566,6 +603,10 @@ public class HrwaManager {
 			HrwaManager.writeToLog("Unable to parse url: " + url, true, HrwaManager.LOG_TYPE_ERROR);
 			return null;
 		}
+	}
+	
+	public static int bytesToMegabytes(long valueInBytes) {
+		return (int)(valueInBytes/1048576L);
 	}
 
 }

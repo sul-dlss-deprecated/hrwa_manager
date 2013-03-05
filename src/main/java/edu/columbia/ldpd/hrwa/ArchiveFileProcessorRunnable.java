@@ -46,7 +46,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	// its own copy of these HashMaps. They're small objects anyway.
 	private final HashMap<String, Integer> sitesMap;
 	private final HashMap<String, Integer> relatedHostsMap;
-	private final int UNCATALOGED_SITE_ID;
 	
 	private final String UNCATALOGED_SITE_HOSTSTRING_VALUE = "[UNCATALOGED SITE]";
 	
@@ -67,8 +66,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		
 		this.sitesMap = MySQLHelper.getSitesMap();
 		this.relatedHostsMap = MySQLHelper.getRelatedHostsMap();
-		
-		UNCATALOGED_SITE_ID = this.sitesMap.get("[UNCATALOGED SITE]");
 		
 		try {
 			setupMainInsertPreparedStatement();
@@ -94,7 +91,12 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			if(currentArcFileBeingProcessed != null) {
 				
 				if( ! HrwaManager.previewMode ) {
-					processArchiveFile(currentArcFileBeingProcessed);
+					
+					if(MySQLHelper.archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(currentArcFileBeingProcessed.getName())) {
+						HrwaManager.writeToLog("Skipping the MySQL indexing of file (" + currentArcFileBeingProcessed.getName() + ") because it has already been fully indexed", true, HrwaManager.LOG_TYPE_NOTICE);
+					} else {
+						processArchiveFile(currentArcFileBeingProcessed);
+					}
 				}
 				
 				//done processing!
@@ -129,10 +131,8 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			PreparedStatement pstmt = this.mySQLConn.prepareStatement("INSERT INTO " + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + " (archive_file_name, crawl_year_and_month) VALUES (?,?);");
 			pstmt.setString(1, archiveFileName);
 			pstmt.setString(2, HrwaManager.getCaptureYearAndMonthStringFromArchiveFileName(archiveFileName));
-			if(! pstmt.execute() ) {
-				HrwaManager.writeToLog("An unknown error occurred while attempting to add the following archive file to the fully indexed archive files table" + archiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
-				System.exit(HrwaManager.EXIT_CODE_ERROR);
-			}
+
+			pstmt.execute();
 		
 			this.mySQLConn.commit(); //need to commit explicitly because auto-commit is turned off for this.mySQLConn
 		} catch (SQLException e) {
@@ -187,7 +187,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 				
 				//Every x number of records, print a line in the memory log to keep track of memory consumption over time
 				if(memoryLogNotificationCounter > 1500) {
-					HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsage(), true, HrwaManager.LOG_TYPE_MEMORY);
+					HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
 					memoryLogNotificationCounter = 0;
 				} else {
 					memoryLogNotificationCounter++;
@@ -199,6 +199,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 				executeAndCommitLatestRecordBatch(); //make sure to commit any remaining records that didn't get committed as part of a regular batch!
 			} catch (SQLException e) {
 				HrwaManager.writeToLog("An error occurred while attempting to commit the last batch of records for archive file: " + archiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
+				e.printStackTrace();
 				System.exit(HrwaManager.EXIT_CODE_ERROR);
 			}
 			
@@ -243,11 +244,11 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		//System.out.println("Detected mimetype: " + detectedMimetype);
 		
 		//Step 3: Insert all info into MySQL
-//		try {
-//			insertRecordIntoMySQLArchiveRecordTable(arcRecord, arcRecordMetaData, detectedMimetype, parentArchiveFileName, newlyCreatedBlobFile.getPath());
-//		} catch (SQLException ex) {
-//			HrwaManager.writeToLog("An error occurred while attempting to insert a new archive record row into MySQL.", true, HrwaManager.LOG_TYPE_ERROR);
-//		}
+		try {
+			insertRecordIntoMySQLArchiveRecordTable(arcRecord, arcRecordMetaData, detectedMimetype, parentArchiveFileName, newlyCreatedBlobFile.getPath());
+		} catch (SQLException ex) {
+			HrwaManager.writeToLog("An error occurred while attempting to insert a new archive record row into MySQL.", true, HrwaManager.LOG_TYPE_ERROR);
+		}
 	}
 	
 	public void insertRecordIntoMySQLArchiveRecordTable(ARCRecord arcRecord, ARCRecordMetaData arcRecordMetaData, String detectedMimetype, String parentArchiveFileName, String pathToBlobFile) throws SQLException {
@@ -255,14 +256,16 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		String recordIdentifier = arcRecordMetaData.getRecordIdentifier();
 		String hoststring = HrwaManager.getHoststringFromUrl(arcRecordMetaData.getUrl());
 		
-		int siteId = UNCATALOGED_SITE_ID; //site_id defaults to UNCATALOGED_SITE_ID
+		boolean linkedViaRelatedHost = false;
+		
+		int siteId = -1; //unless changed, this default -1 will translate to NULL when we do the database insert
+		
 		if (sitesMap.containsKey(hoststring)) {
 			siteId = sitesMap.get(hoststring); //but we're hoping to match to a site_id
 		}
 		else if (relatedHostsMap.containsKey(hoststring)) {
 			siteId = relatedHostsMap.get(hoststring); //and if we can't match to a site_id, we'll try matching to a related host
-		} else {
-			siteId = -1; //this will translate to NULL when we do the database insert
+			linkedViaRelatedHost = true;
 		}
 		
 		long loadTimestamp = System.currentTimeMillis()/1000L; //1000L because we want to use *long* divsion rather than *int* division.
@@ -288,6 +291,8 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			this.mainRecordInsertPstmt.setNull(	16, java.sql.Types.INTEGER                	);
 		}
 		this.mainRecordInsertPstmt.setLong  (	17, loadTimestamp							);
+		this.mainRecordInsertPstmt.setBoolean(	18, linkedViaRelatedHost					);
+		this.mainRecordInsertPstmt.setString  (	19, MySQLHelper.HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR	);
 		
 		this.mainRecordInsertPstmt.addBatch();
 		if ((numRelevantArchiveRecordsProcessed + 1) % HrwaManager.mysqlCommitBatchSize == 0) {
@@ -396,8 +401,8 @@ public class ArchiveFileProcessorRunnable implements Runnable {
                 " ( ip, url, digest, archive_file, offset_in_archive_file, " +
                 "length, record_date, blob_path, mimetype_from_header, mimetype_detected, " +
                 "reader_identifier, record_identifier, archived_url, status_code, hoststring, " +
-                "site_id, load_timestamp) " +
-                "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
+                "site_id, load_timestamp, linked_via_related_host, " + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + ") " +
+                "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
 	}
 	
