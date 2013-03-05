@@ -20,7 +20,6 @@ import edu.columbia.ldpd.hrwa.HrwaSiteRecord;
 public class MySQLHelper {
 	
 	public static final String HRWA_MANAGER_FSF_TODO_DELETE = "DELETE";
-	public static final String HRWA_MANAGER_FSF_TODO_NEW_SITE = "NEW_SITE";
 	public static final String HRWA_MANAGER_FSF_TODO_UPDATED = "UPDATED";
 	public static final String HRWA_MANAGER_FSF_TODO_FIELD_NAME = "hrwa_manager_fsf_todo";
 	
@@ -542,7 +541,7 @@ public class MySQLHelper {
 						pstmt1.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
 						pstmt1.setString(8, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
 						pstmt1.setString(9, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
-						pstmt1.setString(10, MySQLHelper.HRWA_MANAGER_FSF_TODO_NEW_SITE);
+						pstmt1.setString(10, MySQLHelper.HRWA_MANAGER_FSF_TODO_UPDATED);
 						
 						pstmt1.execute();
 					}
@@ -631,8 +630,6 @@ public class MySQLHelper {
 		if(setOfBibKeysToMarkAsDeleted.size() > 0) {
 			
 			String commaDelimitedBibKeys = "'" + StringUtils.join(setOfBibKeysToMarkAsDeleted, "', '") + "'";
-			
-			System.out.println("commaDelimitedBibKeys: " + commaDelimitedBibKeys);
 			
 			try {
 				Connection conn = MySQLHelper.getNewDBConnection(false);
