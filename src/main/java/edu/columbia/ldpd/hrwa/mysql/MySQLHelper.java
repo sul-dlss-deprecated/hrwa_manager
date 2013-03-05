@@ -113,7 +113,7 @@ public class MySQLHelper {
 		PreparedStatement pstmt0 = conn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` (" +
 			"  `id` int(11) unsigned NOT NULL AUTO_INCREMENT," +
-			"  `bib_key` char(7) NOT NULL," +
+			"  `bib_key` varchar(10) NOT NULL," +
 			"  `creator_name` varchar(255) NOT NULL," +
 			"  `hoststring` varchar(255) NOT NULL," +
 			"  `organization_type` varchar(255) NOT NULL," +
@@ -138,28 +138,6 @@ public class MySQLHelper {
 		
 		pstmt0.execute();
 		pstmt0.close();
-		
-		//And now we need to verify that there aren't any records in this table (if it already existed)
-		
-		PreparedStatement pstmt1 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
-		ResultSet resultSet = pstmt1.executeQuery();
-		if (resultSet.next()) {
-			if(resultSet.getInt(1) == 0) {
-				
-				PreparedStatement pstmt2 = conn.prepareStatement(
-						"INSERT INTO `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
-						"(`id`, `bib_key`, `creator_name`, `hoststring`, `organization_type`, `organization_based_in`, `geographic_focus`, `language`, `original_urls`, `marc_005_last_modified`) " +
-						"VALUES (1, '', '', '[UNCATALOGED SITE]', '', '', '', '', '', '0000000000000000');"
-				);
-				
-				pstmt2.execute();
-				pstmt2.close();
-			}
-		 }
-        
-		pstmt1.close();
-		
-        conn.close();
 		
 	}
 	
@@ -546,7 +524,28 @@ public class MySQLHelper {
 				
 				if(newRecordsToAdd.size() > 0) {
 					//Add new records
-					PreparedStatement pstmt1 = conn.prepareStatement("INSERT INTO " + HrwaManager.MYSQL_SITES_TABLE_NAME + " () VALUES ()");
+					PreparedStatement pstmt1 = conn.prepareStatement(
+							"INSERT INTO `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
+							"(`bib_key`, `creator_name`, `hoststring`, `organization_type`, `organization_based_in`, `geographic_focus`, `language`, `original_urls`, `marc_005_last_modified`, `hrwa_manager_fsf_todo`) " +
+							"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
+					);
+					
+					for(HrwaSiteRecord singleRecord : newRecordsToAdd) {
+						System.out.println(singleRecord.getSingleValuedFieldValue("bib_key"));
+						
+						pstmt1.setString(1, singleRecord.getSingleValuedFieldValue("bib_key"));
+						pstmt1.setString(2, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
+						pstmt1.setString(3, singleRecord.getHostString());
+						pstmt1.setString(4, singleRecord.getSingleValuedFieldValue("organization_type"));
+						pstmt1.setString(5, singleRecord.getSingleValuedFieldValue("organization_based_in"));
+						pstmt1.setString(6, singleRecord.getPipeDelimitedMultiValuedFieldString("geographic_focus"));
+						pstmt1.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
+						pstmt1.setString(8, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
+						pstmt1.setString(9, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
+						pstmt1.setString(10, MySQLHelper.HRWA_MANAGER_FSF_TODO_NEW_SITE);
+						
+						pstmt1.execute();
+					}
 					
 					pstmt1.close();
 				}
@@ -554,11 +553,33 @@ public class MySQLHelper {
 				if(existingRrecordsToUpdate.size() > 0) {
 					//Update existing records
 					
-					PreparedStatement pstmt2 = conn.prepareStatement("UPDATE " + HrwaManager.MYSQL_SITES_TABLE_NAME + " SET a=?, b=? WHERE bib_key = ?");
+					//Add new records
+					PreparedStatement pstmt2 = conn.prepareStatement(
+							"UPDATE `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
+							"SET `bib_key` = ?, `creator_name` = ?, `hoststring` = ?, " +
+							"`organization_type` = ?, `organization_based_in` = ?, `geographic_focus` = ?, " +
+							"`language` = ?, `original_urls` = ?, `marc_005_last_modified` = ?, `hrwa_manager_fsf_todo` = ?;"
+					);
+					
+					for(HrwaSiteRecord singleRecord : newRecordsToAdd) {
+						pstmt2.setString(1, singleRecord.getSingleValuedFieldValue("bib_key"));
+						pstmt2.setString(2, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
+						pstmt2.setString(3, singleRecord.getHostString());
+						pstmt2.setString(4, singleRecord.getSingleValuedFieldValue("organization_type"));
+						pstmt2.setString(5, singleRecord.getSingleValuedFieldValue("organization_based_in"));
+						pstmt2.setString(6, singleRecord.getPipeDelimitedMultiValuedFieldString("geographic_focus"));
+						pstmt2.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
+						pstmt2.setString(8, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
+						pstmt2.setString(9, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
+						pstmt2.setString(10, MySQLHelper.HRWA_MANAGER_FSF_TODO_UPDATED_NEEDS_SOLR_REINDEX);
+						
+						pstmt2.execute();
+					}
 					
 					pstmt2.close();
 				}
 				
+				conn.commit();
 		        conn.close();
 			} catch (SQLException e) {
 				HrwaManager.writeToLog("Error: Could not retrieve records from HRWA MySQL related hosts table", true, HrwaManager.LOG_TYPE_ERROR);

@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
 import edu.columbia.ldpd.hrwa.tasks.SitesToSolrAndMySQLTask;
+import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
 
 public class HrwaManager {
 	
@@ -554,6 +556,16 @@ public class HrwaManager {
 			return null;
 		}
 		
+	}
+	
+	public static String getHoststringFromUrl(String url) {
+		try {
+			return MetadataUtils.parseHoststring(url);
+		} catch (MalformedURLException e) {
+			//e.printStackTrace();
+			HrwaManager.writeToLog("Unable to parse url: " + url, true, HrwaManager.LOG_TYPE_ERROR);
+			return null;
+		}
 	}
 
 }

@@ -253,7 +253,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	public void insertRecordIntoMySQLArchiveRecordTable(ARCRecord arcRecord, ARCRecordMetaData arcRecordMetaData, String detectedMimetype, String parentArchiveFileName, String pathToBlobFile) throws SQLException {
 		
 		String recordIdentifier = arcRecordMetaData.getRecordIdentifier();
-		String hoststring = getHoststringFromUrl(arcRecordMetaData.getUrl());
+		String hoststring = HrwaManager.getHoststringFromUrl(arcRecordMetaData.getUrl());
 		
 		int siteId = UNCATALOGED_SITE_ID; //site_id defaults to UNCATALOGED_SITE_ID
 		if (sitesMap.containsKey(hoststring)) {
@@ -293,16 +293,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	public void executeAndCommitLatestRecordBatch() throws SQLException {
 		this.mainRecordInsertPstmt.executeBatch();
 		this.mySQLConn.commit();
-	}
-	
-	public String getHoststringFromUrl(String url) {
-		try {
-			return MetadataUtils.parseHoststring(url);
-		} catch (MalformedURLException e) {
-			//e.printStackTrace();
-			HrwaManager.writeToLog("Unable to parse url: " + url, true, HrwaManager.LOG_TYPE_ERROR);
-			return null;
-		}
 	}
 	
 	public void stop() {

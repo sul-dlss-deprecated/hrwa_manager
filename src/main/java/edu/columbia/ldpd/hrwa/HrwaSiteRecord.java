@@ -110,4 +110,21 @@ public class HrwaSiteRecord {
 		return this.multiValuedFields.get(multiValuedFieldName);
 	}
 	
+	public String getPipeDelimitedMultiValuedFieldString(String multiValuedFieldName) {
+		ArrayList<String> values = getMultiValuedFieldValue(multiValuedFieldName);
+		
+		StringBuilder sb = new StringBuilder();
+		
+		for(String singleValue : values) {
+			sb.append("|" + singleValue);			
+		}
+		
+		return sb.toString();
+	}
+	
+	public String getHostString() {
+		//Return first original_url
+		return HrwaManager.getHoststringFromUrl(this.getMultiValuedFieldValue("original_urls").get(0));
+	}
+	
 }

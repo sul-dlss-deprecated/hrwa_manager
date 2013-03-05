@@ -38,9 +38,8 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		//Create sites table if necessary.  Also related hosts table.
 		try {
 			MySQLHelper.createSitesTableIfItDoesNotExist();
-			MySQLHelper.createRelatedHostsTableIfItDoesNotExist();
 		} catch (SQLException e2) {
-			HrwaManager.writeToLog("Error: Could not create the required MySQL sites tables.", true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog("Error: Could not create the MySQL sites tables.", true, HrwaManager.LOG_TYPE_ERROR);
 		}
 		
 		//Fetch Marc Data From CLIO
@@ -126,7 +125,7 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		}
 		
 		//And now we'll add or update those HrwaSiteRecords
-		//MySQLHelper.addOrUpdateHrwaSiteRecordsInMySQLSitesTable(hrwaSiteRecordToAddOrUpdate);
+		MySQLHelper.addOrUpdateHrwaSiteRecordsInMySQLSitesTable(hrwaSiteRecordToAddOrUpdate);
 		
 		//Now let's index all of those solr docs into solr
 		Properties solrPropertiesConfig = new Properties();
@@ -138,6 +137,12 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
+		}
+        
+        try {
+			MySQLHelper.createRelatedHostsTableIfItDoesNotExist();
+		} catch (SQLException e) {
+			HrwaManager.writeToLog("Error: Could not create the MySQL related hosts tables.", true, HrwaManager.LOG_TYPE_ERROR);
 		}
 		
 //		//If the temp directories are empty, delete them (and all files in them)
