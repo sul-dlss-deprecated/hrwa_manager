@@ -21,7 +21,8 @@ public class MySQLHelper {
 	
 	public static final String HRWA_MANAGER_FSF_TODO_DELETE = "DELETE";
 	public static final String HRWA_MANAGER_FSF_TODO_NEW_SITE = "NEW_SITE";
-	public static final String HRWA_MANAGER_FSF_TODO_UPDATED_NEEDS_SOLR_REINDEX = "UPDATED_NEEDS_SOLR_REINDEX";
+	public static final String HRWA_MANAGER_FSF_TODO_UPDATED = "UPDATED";
+	public static final String HRWA_MANAGER_FSF_TODO_FIELD_NAME = "hrwa_manager_fsf_todo";
 	
 	public static Connection getNewDBConnection(boolean autoCommit) {
 
@@ -122,7 +123,7 @@ public class MySQLHelper {
 			"  `language` varchar(2000) NOT NULL," +
 			"  `original_urls` varchar(2000) NOT NULL," +
 			"  `marc_005_last_modified` char(16) NOT NULL," +
-			"  `hrwa_manager_fsf_todo` varchar(50) DEFAULT NULL," +
+			"  `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "` varchar(50) DEFAULT NULL," +
 			"  PRIMARY KEY (`id`)," +
 			"  UNIQUE KEY `bib_key` (`bib_key`)," +
 			"  KEY `creator_name` (`creator_name`)," +
@@ -132,7 +133,7 @@ public class MySQLHelper {
 			"  KEY `geographic_focus` (`geographic_focus`(255))," +
 			"  KEY `language` (`language`(255))," +
 			"  KEY `original_urls` (`original_urls`(255))," +
-			"  KEY `hrwa_manager_fsf_todo` (`hrwa_manager_fsf_todo`)" +
+			"  KEY `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "` (`" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "`)" +
 			") ENGINE=InnoDB  DEFAULT CHARSET=utf8 AUTO_INCREMENT=2;" //2 is important here! We want to save room for id=1 for 
 		);
 		
@@ -526,12 +527,11 @@ public class MySQLHelper {
 					//Add new records
 					PreparedStatement pstmt1 = conn.prepareStatement(
 							"INSERT INTO `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
-							"(`bib_key`, `creator_name`, `hoststring`, `organization_type`, `organization_based_in`, `geographic_focus`, `language`, `original_urls`, `marc_005_last_modified`, `hrwa_manager_fsf_todo`) " +
+							"(`bib_key`, `creator_name`, `hoststring`, `organization_type`, `organization_based_in`, `geographic_focus`, `language`, `original_urls`, `marc_005_last_modified`, `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "`) " +
 							"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 					);
 					
 					for(HrwaSiteRecord singleRecord : newRecordsToAdd) {
-						System.out.println(singleRecord.getSingleValuedFieldValue("bib_key"));
 						
 						pstmt1.setString(1, singleRecord.getSingleValuedFieldValue("bib_key"));
 						pstmt1.setString(2, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
@@ -556,22 +556,25 @@ public class MySQLHelper {
 					//Add new records
 					PreparedStatement pstmt2 = conn.prepareStatement(
 							"UPDATE `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
-							"SET `bib_key` = ?, `creator_name` = ?, `hoststring` = ?, " +
+							"SET `creator_name` = ?, `hoststring` = ?, " +
 							"`organization_type` = ?, `organization_based_in` = ?, `geographic_focus` = ?, " +
-							"`language` = ?, `original_urls` = ?, `marc_005_last_modified` = ?, `hrwa_manager_fsf_todo` = ?;"
+							" `language` = ?, `original_urls` = ?, `marc_005_last_modified` = ?, `" + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + "` = ? " +
+							"WHERE bib_key = ?;"
 					);
 					
-					for(HrwaSiteRecord singleRecord : newRecordsToAdd) {
-						pstmt2.setString(1, singleRecord.getSingleValuedFieldValue("bib_key"));
-						pstmt2.setString(2, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
-						pstmt2.setString(3, singleRecord.getHostString());
-						pstmt2.setString(4, singleRecord.getSingleValuedFieldValue("organization_type"));
-						pstmt2.setString(5, singleRecord.getSingleValuedFieldValue("organization_based_in"));
-						pstmt2.setString(6, singleRecord.getPipeDelimitedMultiValuedFieldString("geographic_focus"));
-						pstmt2.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
-						pstmt2.setString(8, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
-						pstmt2.setString(9, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
-						pstmt2.setString(10, MySQLHelper.HRWA_MANAGER_FSF_TODO_UPDATED_NEEDS_SOLR_REINDEX);
+					for(HrwaSiteRecord singleRecord : existingRrecordsToUpdate) {
+						pstmt2.setString(1, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
+						pstmt2.setString(2, singleRecord.getHostString());
+						pstmt2.setString(3, singleRecord.getSingleValuedFieldValue("organization_type"));
+						pstmt2.setString(4, singleRecord.getSingleValuedFieldValue("organization_based_in"));
+						pstmt2.setString(5, singleRecord.getPipeDelimitedMultiValuedFieldString("geographic_focus"));
+						pstmt2.setString(6, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
+						pstmt2.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
+						pstmt2.setString(8, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
+						pstmt2.setString(9, MySQLHelper.HRWA_MANAGER_FSF_TODO_UPDATED);
+						pstmt2.setString(10, singleRecord.getSingleValuedFieldValue("bib_key"));
+						
+						System.out.println("Updating bib_key record " + singleRecord.getSingleValuedFieldValue("bib_key") + " with value: " + singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
 						
 						pstmt2.execute();
 					}
@@ -588,6 +591,9 @@ public class MySQLHelper {
 			}
 			
 		}
+		
+		HrwaManager.writeToLog("Number of new site records added to the sites table: " + newRecordsToAdd.size(), true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Number of existing sites table records updated: " + existingRrecordsToUpdate.size(), true, HrwaManager.LOG_TYPE_STANDARD);
 	}
 
 	public static HashMap<String, Integer> getRelatedHostsMap() {
@@ -626,11 +632,14 @@ public class MySQLHelper {
 			
 			String commaDelimitedBibKeys = "'" + StringUtils.join(setOfBibKeysToMarkAsDeleted, "', '") + "'";
 			
+			System.out.println("commaDelimitedBibKeys: " + commaDelimitedBibKeys);
+			
 			try {
 				Connection conn = MySQLHelper.getNewDBConnection(false);
-				PreparedStatement pstmt = conn.prepareStatement("UPDATE " + HrwaManager.MYSQL_SITES_TABLE_NAME + " SET hrwa_manager_fsf_todo = '" + MySQLHelper.HRWA_MANAGER_FSF_TODO_DELETE + "' WHERE bib_key IN (" + commaDelimitedBibKeys + ");");
+				PreparedStatement pstmt = conn.prepareStatement("UPDATE " + HrwaManager.MYSQL_SITES_TABLE_NAME + " SET " + MySQLHelper.HRWA_MANAGER_FSF_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_FSF_TODO_DELETE + "' WHERE bib_key IN (" + commaDelimitedBibKeys + ");");
 				pstmt.execute();
 		        pstmt.close();
+		        conn.commit();
 		        conn.close();
 			} catch (SQLException e) {
 				HrwaManager.writeToLog("Error: Could not mark sites to be deleted in HRWA MySQL sites tables", true, HrwaManager.LOG_TYPE_ERROR);

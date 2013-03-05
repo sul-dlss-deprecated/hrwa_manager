@@ -111,6 +111,8 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		//So now we know which records need to be deleted.  Let's mark them to be deleted.
 		MySQLHelper.markSitesToBeDeleted(bibKeysOfRecordsToDelete);
 		
+		HrwaManager.writeToLog("Number of existing sites table records to delete: " + bibKeysOfRecordsToDelete.size(), true, HrwaManager.LOG_TYPE_STANDARD);
+		
 		//Collect all solr-ready HrwaSiteRecords to add/update in MySQL
 		ArrayList<HrwaSiteRecord> hrwaSiteRecordToAddOrUpdate = new ArrayList<HrwaSiteRecord>();
 		
@@ -145,13 +147,13 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 			HrwaManager.writeToLog("Error: Could not create the MySQL related hosts tables.", true, HrwaManager.LOG_TYPE_ERROR);
 		}
 		
-//		//If the temp directories are empty, delete them (and all files in them)
-//		try {
-//			FileUtils.deleteDirectory(marcFileDir);
-//			FileUtils.deleteDirectory(solrFileDir);
-//		} catch (IOException e) {
-//			HrwaManager.writeToLog("Error: Encountered a problem while attempting to delete the contents of tempHrwaClioMarcXmlFileDirectory (" + tempHrwaClioMarcXmlFileDirectory + ")", true, HrwaManager.LOG_TYPE_STANDARD);
-//		}
+		//If the temp directories are empty, delete them (and all files in them)
+		try {
+			FileUtils.deleteDirectory(marcFileDir);
+			FileUtils.deleteDirectory(solrFileDir);
+		} catch (IOException e) {
+			HrwaManager.writeToLog("Error: Encountered a problem while attempting to delete the contents of tempHrwaClioMarcXmlFileDirectory (" + tempHrwaClioMarcXmlFileDirectory + ")", true, HrwaManager.LOG_TYPE_STANDARD);
+		}
 		
 		writeTaskFooterMessageAndPrintTotalTime();
 		

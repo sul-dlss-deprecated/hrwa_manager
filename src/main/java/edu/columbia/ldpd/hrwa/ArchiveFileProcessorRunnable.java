@@ -261,6 +261,8 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		}
 		else if (relatedHostsMap.containsKey(hoststring)) {
 			siteId = relatedHostsMap.get(hoststring); //and if we can't match to a site_id, we'll try matching to a related host
+		} else {
+			siteId = -1; //this will translate to NULL when we do the database insert
 		}
 		
 		long loadTimestamp = System.currentTimeMillis()/1000L; //1000L because we want to use *long* divsion rather than *int* division.
@@ -280,7 +282,11 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		this.mainRecordInsertPstmt.setString(	13, ArchiveFileProcessorRunnable.ARCHIVED_URL_PREFIX + recordIdentifier);
 		this.mainRecordInsertPstmt.setInt   (   14, arcRecord.getStatusCode()				);
 		this.mainRecordInsertPstmt.setString(	15, hoststring								);
-		this.mainRecordInsertPstmt.setInt   (	16, siteId                					);
+		if(siteId > -1) {
+			this.mainRecordInsertPstmt.setInt(	16, siteId                					);
+		} else {
+			this.mainRecordInsertPstmt.setNull(	16, java.sql.Types.INTEGER                	);
+		}
 		this.mainRecordInsertPstmt.setLong  (	17, loadTimestamp							);
 		
 		this.mainRecordInsertPstmt.addBatch();
