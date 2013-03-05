@@ -5,6 +5,7 @@
     <field name="creator_name">Amnesty International Pilipinas</field>
     <field name="geographic_focus">Philippines</field>
     <field name="language">English</field>
+    <field name="marc_005_last_modified">20110822222902.0</field>
     <field name="organization_based_in">Philippines</field>
     <field name="organization_type">Non-governmental organizations</field>
     <field name="original_urls">http://www.amnesty.org.ph/</field>

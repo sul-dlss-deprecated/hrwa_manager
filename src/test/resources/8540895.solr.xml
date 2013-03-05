@@ -5,6 +5,7 @@
     <field name="creator_name">Amnesty International. Føroya deild</field>
     <field name="geographic_focus">Faroe Islands</field>
     <field name="language">Faroese</field>
+    <field name="marc_005_last_modified">20120919164944.0</field>
     <field name="organization_based_in">Faroe Islands</field>
     <field name="organization_type">Non-governmental organizations</field>
     <field name="original_urls">http://www.amnesty.fo/</field>

@@ -8,9 +8,9 @@ import java.util.HashMap;
 
 
 public class Translations {
-    public static HashMap<String, String> COUNTRY = loadTranslation("country_code.txt",374);
-    public static HashMap<String, String> GAC = loadTranslation("gac_code.txt",583);
-    public static HashMap<String, String> LANGUAGE = loadTranslation("language_code.txt",517);
+    public static HashMap<String, String> COUNTRY = loadTranslation("/country_code.txt",374);
+    public static HashMap<String, String> GAC = loadTranslation("/gac_code.txt",583);
+    public static HashMap<String, String> LANGUAGE = loadTranslation("/language_code.txt",517);
 
     private static HashMap<String, String> loadTranslation(String file, int lines){
         HashMap<String,String> result = new HashMap<String, String>(lines);
