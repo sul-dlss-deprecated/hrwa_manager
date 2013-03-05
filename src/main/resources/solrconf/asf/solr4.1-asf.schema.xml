@@ -122,7 +122,9 @@
    <field name="recordIdentifier"         type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="statusCode"               type="string"       indexed="true"  stored="true"  required="false" multiValued="false" />
    <field name="contents"                 type="text_en"      indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="title"                    type="text_en"      indexed="true"  stored="true"  required="false" multiValued="false" />
+
+   <!-- Title is part of data extracted by Solr Cell.  See title field grouped with other Solr Cell fields later in this schema file (around 40-50 lines below this line). -->
+   <!-- <field name="title"                    type="text_en"      indexed="true"  stored="true"  required="false" multiValued="false" /> -->
 
    <!-- from FSF/SDF: fields to be used for faceting and linking to FSF/SDF metadata -->
 
@@ -151,17 +153,17 @@
    -->
 
    <field name="title" type="text_general" indexed="true" stored="true" multiValued="true"/>
-   <field name="subject" type="text_general" indexed="true" stored="true"/>
-   <field name="description" type="text_general" indexed="true" stored="true"/>
-   <field name="comments" type="text_general" indexed="true" stored="true"/>
-   <field name="author" type="text_general" indexed="true" stored="true"/>
-   <field name="keywords" type="text_general" indexed="true" stored="true"/>
-   <field name="category" type="text_general" indexed="true" stored="true"/>
-   <field name="resourcename" type="text_general" indexed="true" stored="true"/>
-   <field name="url" type="text_general" indexed="true" stored="true"/>
-   <field name="content_type" type="string" indexed="true" stored="true" multiValued="true"/>
-   <field name="last_modified" type="date" indexed="true" stored="true"/>
-   <field name="links" type="string" indexed="true" stored="true" multiValued="true"/>
+   <field name="rd_subject" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_description" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_comments" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_author" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_keywords" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_category" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_resourcename" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_url" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_content_type" type="string" indexed="true" stored="true" multiValued="true"/>
+   <field name="rd_last_modified" type="date" indexed="true" stored="true"/>
+   <field name="rd_links" type="string" indexed="true" stored="true" multiValued="true"/>
 
    <!-- Main body of document extracted by SolrCell.
         NOTE: This field is not indexed by default, since it is also copied to "text"
@@ -173,11 +175,11 @@
 
    <!-- catchall field, containing all other searchable text fields (implemented
         via copyField further on in this schema  -->
-   <field name="all_text" type="text_en" indexed="true" stored="false" multiValued="true"/>
+   <field name="text" type="text_en" indexed="true" stored="false" multiValued="true"/>
 
    <!-- catchall text field that indexes tokens both normally and in reverse for efficient
         leading wildcard queries. -->
-   <field name="all_text_rev" type="text_general_rev" indexed="true" stored="false" multiValued="true"/>
+   <field name="text_rev" type="text_general_rev" indexed="true" stored="false" multiValued="true"/>
 
    <!-- non-tokenized version of manufacturer to make it easier to sort or group
         results by manufacturer.  copied from "manu" via copyField -->
@@ -276,8 +278,8 @@
 
    <copyField source="recordIdentifier" dest="id"/>
 
-   <copyField source="title"    dest="all_text"/>
-   <copyField source="contents" dest="all_text"/>
+   <copyField source="title"    dest="text"/>
+   <copyField source="contents" dest="text"/>
 
    <!-- FSF fields to facets.  These copyFields are in FSF schema.xml, too, but we
         let ASF do its own copying for safety. -->

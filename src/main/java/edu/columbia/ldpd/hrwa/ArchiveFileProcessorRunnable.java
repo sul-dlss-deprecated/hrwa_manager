@@ -3,8 +3,17 @@ package edu.columbia.ldpd.hrwa;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
@@ -14,7 +23,15 @@ import org.archive.io.arc.ARCRecord;
 import org.archive.io.arc.ARCRecordMetaData;
 import org.archive.nutchwax.tools.ArcReader;
 
+import com.googlecode.mp4parser.h264.model.HRDParameters;
+
+import edu.columbia.ldpd.hrwa.mysql.MySQLHelper;
+import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
+import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
+
 public class ArchiveFileProcessorRunnable implements Runnable {
+	
+	private static final String ARCHIVED_URL_PREFIX = "http://wayback.archive-it.org/1068/";
 	
 	private int uniqueRunnableId;
 	private boolean running = true;
@@ -23,6 +40,19 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	private final MimetypeDetector mimetypeDetector;
 	private Boolean isProcessingAnArchiveFile = false;
 	
+	// Even though every instance of an ArchiveFileProcessorRunnable will have
+	// the same data stored in sitesMap and relatedHostsMap, I don't want to
+	// worry about thread safety and sharing data, so each thread will generate
+	// its own copy of these HashMaps. They're small objects anyway.
+	private final HashMap<String, Integer> sitesMap;
+	private final HashMap<String, Integer> relatedHostsMap;
+	private final int UNCATALOGED_SITE_ID;
+	
+	private final String UNCATALOGED_SITE_HOSTSTRING_VALUE = "[UNCATALOGED SITE]";
+	
+	private Connection mySQLConn = null;
+	private PreparedStatement mainRecordInsertPstmt;
+	
 	public ArchiveFileProcessorRunnable(int uniqueNumericId) {
 		//Assign uniqueNumericId
 		uniqueRunnableId = uniqueNumericId;
@@ -30,8 +60,24 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		//Create a MimetypeDetector
 		mimetypeDetector = new MimetypeDetector();
 		
-		//Each processor has its own unique connection to MySQL
-		//TODO: Create MySQL connection
+		
+		//Each ArchiveFileProcessorRunnable has its own unique connection to MySQL.
+		//Initialize the one and only database connection for this instance.
+		this.mySQLConn = MySQLHelper.getNewDBConnection(false);
+		
+		this.sitesMap = MySQLHelper.getSitesMap();
+		this.relatedHostsMap = MySQLHelper.getRelatedHostsMap();
+		
+		UNCATALOGED_SITE_ID = this.sitesMap.get("[UNCATALOGED SITE]");
+		
+		try {
+			setupMainInsertPreparedStatement();
+		} catch (SQLException e) {
+			HrwaManager.writeToLog("An SQLException occurred while calling preparing mainInsertPstmt.", true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+			System.exit(0);
+		}
+
 	}
 	
 	public int getUniqueRunnableId() {
@@ -66,7 +112,34 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			
 		}
 		
-		System.out.println("THREAD " + getUniqueRunnableId() + " COMPLETE!");
+		try {
+			closeMainInsertPreparedStatement();
+		} catch (SQLException e) {
+			HrwaManager.writeToLog("An SQLException occurred while trying to close mainInsertPstmt.", true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+			System.exit(0);
+		}
+		
+		System.out.println("Thread " + getUniqueRunnableId() + " complete!");
+	}
+	
+	private void addNewArchiveFileToFullyIndexedArchiveFilesTable(String archiveFileName) {
+		
+		try {
+			PreparedStatement pstmt = this.mySQLConn.prepareStatement("INSERT INTO " + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + " (archive_file_name, crawl_year_and_month) VALUES (?,?);");
+			pstmt.setString(1, archiveFileName);
+			pstmt.setString(2, HrwaManager.getCaptureYearAndMonthStringFromArchiveFileName(archiveFileName));
+			if(! pstmt.execute() ) {
+				HrwaManager.writeToLog("An unknown error occurred while attempting to add the following archive file to the fully indexed archive files table" + archiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
+				System.exit(HrwaManager.EXIT_CODE_ERROR);
+			}
+		
+			this.mySQLConn.commit(); //need to commit explicitly because auto-commit is turned off for this.mySQLConn
+		} catch (SQLException e) {
+			HrwaManager.writeToLog("An SQL error occurred while attempting to add the following archive file to the fully indexed archive files table" + archiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+			System.exit(HrwaManager.EXIT_CODE_ERROR);
+		}
 	}
 	
 	public void processArchiveFile(File archiveFile) {
@@ -91,11 +164,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			// Loop through all archive records in this file
 			for (ARCRecord arcRecord : arcReader) {
 				
-				if( numRelevantArchiveRecordsProcessed == 530 ) {
-					System.out.println("We're about to crash! File info below for 530:");
-					System.out.println(arcRecord.getMetaData().getOffset());
-				}
-				
 				if (arcRecord == null) {
 					// WARC records that are not of WARC-Type response will be set to null, and we don't want to analyze these.
 					// Need to check for null.
@@ -112,7 +180,9 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 					this.processSingleArchiveRecord(arcRecord, archiveFileName);
 					
 					this.numRelevantArchiveRecordsProcessed++;
-					System.out.println("Thread " + uniqueRunnableId + " records processed: " + this.numRelevantArchiveRecordsProcessed);
+					if(HrwaManager.verbose) {
+						System.out.println("Thread " + uniqueRunnableId + " records processed: " + this.numRelevantArchiveRecordsProcessed);
+					}
 				}
 				
 				//Every x number of records, print a line in the memory log to keep track of memory consumption over time
@@ -122,7 +192,17 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 				} else {
 					memoryLogNotificationCounter++;
 				}
+				
 			}
+			
+			try {
+				executeAndCommitLatestRecordBatch(); //make sure to commit any remaining records that didn't get committed as part of a regular batch!
+			} catch (SQLException e) {
+				HrwaManager.writeToLog("An error occurred while attempting to commit the last batch of records for archive file: " + archiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
+				System.exit(HrwaManager.EXIT_CODE_ERROR);
+			}
+			
+			addNewArchiveFileToFullyIndexedArchiveFilesTable(archiveFileName);
 		
 		} catch (IOException e) {
 			HrwaManager.writeToLog("An error occurred while trying to read in the archive file at " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
@@ -136,6 +216,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 				e.printStackTrace();
 			}
 		}
+		
 	}
 	
 	public long getNumRelevantArchiveRecordsProcessed() {
@@ -155,13 +236,73 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		ARCRecordMetaData arcRecordMetaData = arcRecord.getMetaData();
 		
 		//Step 1: Create .blob file and .blob.header file
-		String fullPathToNewlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
+		File newlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
 		
 		//Step 2: Run mimetype detection on blob file - Mimetype detection with Tika 1.2 is thread-safe.
-		String detectedMimetype = mimetypeDetector.getMimetype(new File(fullPathToNewlyCreatedBlobFile));
+		String detectedMimetype = mimetypeDetector.getMimetype(newlyCreatedBlobFile);
 		//System.out.println("Detected mimetype: " + detectedMimetype);
 		
 		//Step 3: Insert all info into MySQL
+//		try {
+//			insertRecordIntoMySQLArchiveRecordTable(arcRecord, arcRecordMetaData, detectedMimetype, parentArchiveFileName, newlyCreatedBlobFile.getPath());
+//		} catch (SQLException ex) {
+//			HrwaManager.writeToLog("An error occurred while attempting to insert a new archive record row into MySQL.", true, HrwaManager.LOG_TYPE_ERROR);
+//		}
+	}
+	
+	public void insertRecordIntoMySQLArchiveRecordTable(ARCRecord arcRecord, ARCRecordMetaData arcRecordMetaData, String detectedMimetype, String parentArchiveFileName, String pathToBlobFile) throws SQLException {
+		
+		String recordIdentifier = arcRecordMetaData.getRecordIdentifier();
+		String hoststring = getHoststringFromUrl(arcRecordMetaData.getUrl());
+		
+		int siteId = UNCATALOGED_SITE_ID; //site_id defaults to UNCATALOGED_SITE_ID
+		if (sitesMap.containsKey(hoststring)) {
+			siteId = sitesMap.get(hoststring); //but we're hoping to match to a site_id
+		}
+		else if (relatedHostsMap.containsKey(hoststring)) {
+			siteId = relatedHostsMap.get(hoststring); //and if we can't match to a site_id, we'll try matching to a related host
+		}
+		
+		long loadTimestamp = System.currentTimeMillis()/1000L; //1000L because we want to use *long* divsion rather than *int* division.
+		
+		this.mainRecordInsertPstmt.setString(	1,  arcRecordMetaData.getIp()				);
+		this.mainRecordInsertPstmt.setString(	2,  arcRecordMetaData.getUrl()				);
+		this.mainRecordInsertPstmt.setString(	3,  arcRecordMetaData.getDigest()			);
+		this.mainRecordInsertPstmt.setString(	4,  parentArchiveFileName           		);
+		this.mainRecordInsertPstmt.setLong  (	5,  arcRecordMetaData.getOffset()			);
+		this.mainRecordInsertPstmt.setLong  (   6,  arcRecordMetaData.getLength()           );
+		this.mainRecordInsertPstmt.setString(	7,  arcRecordMetaData.getDate()				);
+		this.mainRecordInsertPstmt.setString(	8,  pathToBlobFile             				);
+		this.mainRecordInsertPstmt.setString(	9,  arcRecordMetaData.getMimetype()    		);
+		this.mainRecordInsertPstmt.setString(	10, detectedMimetype      					);
+		this.mainRecordInsertPstmt.setString(	11, arcRecordMetaData.getReaderIdentifier()	);
+		this.mainRecordInsertPstmt.setString(	12, recordIdentifier						);
+		this.mainRecordInsertPstmt.setString(	13, ArchiveFileProcessorRunnable.ARCHIVED_URL_PREFIX + recordIdentifier);
+		this.mainRecordInsertPstmt.setInt   (   14, arcRecord.getStatusCode()				);
+		this.mainRecordInsertPstmt.setString(	15, hoststring								);
+		this.mainRecordInsertPstmt.setInt   (	16, siteId                					);
+		this.mainRecordInsertPstmt.setLong  (	17, loadTimestamp							);
+		
+		this.mainRecordInsertPstmt.addBatch();
+		if ((numRelevantArchiveRecordsProcessed + 1) % HrwaManager.mysqlCommitBatchSize == 0) {
+			// Batch execute group size: HrwaManager.mysqlCommitBatchSize
+			executeAndCommitLatestRecordBatch();
+        }
+	}
+	
+	public void executeAndCommitLatestRecordBatch() throws SQLException {
+		this.mainRecordInsertPstmt.executeBatch();
+		this.mySQLConn.commit();
+	}
+	
+	public String getHoststringFromUrl(String url) {
+		try {
+			return MetadataUtils.parseHoststring(url);
+		} catch (MalformedURLException e) {
+			//e.printStackTrace();
+			HrwaManager.writeToLog("Unable to parse url: " + url, true, HrwaManager.LOG_TYPE_ERROR);
+			return null;
+		}
 	}
 	
 	public void stop() {
@@ -201,9 +342,9 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	/**
 	 * Creates a blob file for this record on the file system.
 	 * @param arcRecord
-	 * @return The full path to the newly created blob file.
+	 * @return The newly created blob File.
 	 */
-	private String createBlobAndHeaderFilesForRecord(ARCRecord arcRecord, ARCRecordMetaData arcRecordMetaData, String httpHeaderString, String arcRecordParentArchiveFileName) {
+	private File createBlobAndHeaderFilesForRecord(ARCRecord arcRecord, ARCRecordMetaData arcRecordMetaData, String httpHeaderString, String arcRecordParentArchiveFileName) {
 		
 		String fullPathToNewBlobFile = getBlobFilePathForRecord(arcRecord, arcRecordMetaData, arcRecordParentArchiveFileName);
 		
@@ -241,7 +382,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
             HrwaManager.writeToLog("Error: Could not write file (" + blob_path_with_header_extension + ") to disk.", true, HrwaManager.LOG_TYPE_ERROR);
         }
         
-		return fullPathToNewBlobFile;			
+		return blobFile;
 	}
 	
 	private String getBlobFilePathForRecord(ARCRecord arcRecord, ARCRecordMetaData arcRecordMetaData, String arcRecordParentArchiveFileName) {
@@ -252,6 +393,21 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		return HrwaManager.blobDirPath + File.separator + arcRecordParentArchiveFileName + File.separator + arcRecordMetaData.getOffset() + ".blob";
 	}
 	
+	//Only prepare the statement once.  No need to do it multiple times since we're inserting the same-formatted data over and over
+	public void setupMainInsertPreparedStatement() throws SQLException {
+	    this.mainRecordInsertPstmt = mySQLConn.prepareStatement (
+                "INSERT INTO " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME +
+                " ( ip, url, digest, archive_file, offset_in_archive_file, " +
+                "length, record_date, blob_path, mimetype_from_header, mimetype_detected, " +
+                "reader_identifier, record_identifier, archived_url, status_code, hoststring, " +
+                "site_id, load_timestamp) " +
+                "VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
+        );
+	}
+	
+	public void closeMainInsertPreparedStatement() throws SQLException {
+	    this.mainRecordInsertPstmt.close();
+	}
 	
 	/* Byte check-in/check-out stuff */
 	

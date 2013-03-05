@@ -7,6 +7,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -16,6 +21,7 @@ import java.util.Date;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -44,6 +50,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
 import edu.columbia.ldpd.hrwa.ArchiveFileProcessorRunnable;
 import edu.columbia.ldpd.hrwa.HrwaManager;
+import edu.columbia.ldpd.hrwa.mysql.MySQLHelper;
 
 public class ArchiveToMySQLTask extends HrwaTask {
 	
@@ -66,8 +73,6 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		writeTaskHeaderMessageAndSetStartTime();
 		
-		initializeArchiveRecordProcessorThreads();
-		
 		//Scan through warc file directory and generate an alphabetically-sorted list of all warc files to index
 		File[] archiveFilesToProcess = getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(HrwaManager.archiveFileDirPath, validArchiveFileExtensions);
 		
@@ -80,13 +85,22 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		HrwaManager.writeToLog("Number of archive files to process: " + archiveFilesToProcess.length, true, HrwaManager.LOG_TYPE_STANDARD);
 		
+		//Create necessary MySQL tables
+		try {
+			MySQLHelper.createMimetypeCodesTableIfItDoesNotExist();
+			MySQLHelper.createWebArchiveRecordsTableIfItDoesNotExist();
+			MySQLHelper.createFullyIndexedArchiveFilesTableIfItDoesNotExist();
+		} catch (SQLException e1) {
+			HrwaManager.writeToLog("Error: Could not create one of the required MySQL tables.", true, HrwaManager.LOG_TYPE_ERROR);
+		}
 		
+		initializeArchiveRecordProcessorThreads();
 		
 		//Iterate through and process all archive files
 		for(int i = 0; i < numberOfArchiveFilesToProcess; i++) {
 			HrwaManager.writeToLog(	"Processing archive file " + (i+1) + " of " + numberOfArchiveFilesToProcess + "\n" +
 									"-- Name of archive file: " + archiveFilesToProcess[i].getName() + "\n" +
-									"-- Total number of relevant archive records processed at this exact moment: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(),
+									"-- Total number of relevant archive records processed so far (at this exact moment): " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(),
 									true, HrwaManager.LOG_TYPE_STANDARD);
 			
 			processSingleArchiveFile(archiveFilesToProcess[i]);
@@ -138,8 +152,11 @@ public class ArchiveToMySQLTask extends HrwaTask {
 					lookingForAvailableProcessorThread = false;
 					
 					singleProcessorRunnable.queueArchiveFileForProcessing(archiveFile);
-					//Uncomment the line below to perform single-threaded processing (by directly calling the processArchiveFile() method)
-					//If you do uncomment this line, then you should uncomment the line above (for queueing archive file processing)
+					// Uncomment the line below to perform single-threaded
+					// debugging/processing (by directly calling the
+					// processArchiveFile() method). If you do uncomment this
+					// line, then you should comment out the line above (because
+					// you no longer want to queue archive file processing).
 					//singleProcessorRunnable.processArchiveFile(archiveFile);
 					break;
 				}
@@ -173,7 +190,7 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	public boolean someArchiveRecordProcessorsAreStillRunning() {
 		for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
 			if(singleProcessor.isProcessingAnArchiveFile()) {
-				//System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running. --> " + singleProcessor.getNumRelevantArchiveRecordsProcessed());
+				System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running. --> " + singleProcessor.getNumRelevantArchiveRecordsProcessed());
 				return true;
 			}
 		}
@@ -282,12 +299,6 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		});
 
 	}
-	
-	
-	
-	
-	
-	
 	
 	
 }

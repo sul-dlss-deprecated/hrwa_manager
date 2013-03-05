@@ -13,3 +13,9 @@ dependency-reduced-pom.xml
 .metadata/
 .project
 .settings/
+logs/
+blobs/
+tmp/
+
+# Test-related files to ignore
+marc_xml/

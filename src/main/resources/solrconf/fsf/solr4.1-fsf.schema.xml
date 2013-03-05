@@ -105,6 +105,8 @@
    <field name="bib_key"                      type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="title"                        type="text_general" indexed="true"  stored="true"  required="true"  multiValued="false" />
 
+   <field name="marc_005_last_modified"       type="string"       indexed="false" stored="true"  required="true"  multiValued="false" />
+
    <!-- Required fields must be either indexed="true" or stored="true", or else add doc fails with spurious "Missing required field"
    error.  Source: http://stackoverflow.com/questions/9745039/solr-missing-required-field-error-when-the-field-is-not-missing.
         Also, indexed must be true to be able to sort by a field.
@@ -129,8 +131,8 @@
    <field name="language__facet"              type="string"       indexed="true"  stored="true"  required="true"  multiValued="true"  />
    <field name="original_urls"                type="string"       indexed="true"  stored="true"  required="true"  multiValued="true"  />
    <field name="archived_urls"                type="string"       indexed="false" stored="true"  required="true"  multiValued="true"  />
-   <field name="crawl_date_start"             type="string"       indexed="true"  stored="true"  required="false" multiValued="false"  />
-   <field name="crawl_date_end"               type="string"       indexed="true"  stored="true"  required="false" multiValued="false"  />
+   <field name="crawl_date_start"             type="string"       indexed="true"  stored="true"  required="false" multiValued="false" />
+   <field name="crawl_date_end"               type="string"       indexed="true"  stored="true"  required="false" multiValued="false" />
 
 
    <!-- Common metadata fields, named specifically to match up with
@@ -166,11 +168,11 @@
 
    <!-- catchall field, containing all other searchable text fields (implemented
         via copyField further on in this schema  -->
-   <field name="all_text" type="text_general" indexed="true" stored="false" multiValued="true"/>
+   <field name="text" type="text_general" indexed="true" stored="false" multiValued="true"/>
 
    <!-- catchall text field that indexes tokens both normally and in reverse for efficient
         leading wildcard queries. -->
-   <field name="all_text_rev" type="text_general_rev" indexed="true" stored="false" multiValued="true"/>
+   <field name="text_rev" type="text_general_rev" indexed="true" stored="false" multiValued="true"/>
 
    <!-- non-tokenized version of manufacturer to make it easier to sort or group
         results by manufacturer.  copied from "manu" via copyField -->

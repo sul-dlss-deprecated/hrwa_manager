@@ -1030,6 +1030,25 @@
       <str name="lowernames">true</str>
       <str name="uprefix">ignored_</str>
 
+      <!-- All the main content goes into "text"... if you need to return
+           the extracted text or do highlighting, use a stored field. -->
+      <str name="fmap.content">contents</str>
+      <str name="fmap.subject">rd_subject</str>
+      <str name="fmap.description">rd_description</str>
+      <str name="fmap.comments">rd_comments</str>
+      <str name="fmap.author">rd_author</str>
+      <str name="fmap.keywords">rd_keywords</str>
+      <str name="fmap.category">rd_category</str>
+      <str name="fmap.content_type">rd_content_type</str>
+      <str name="fmap.last_modified">rd_last_modified</str>
+      <str name="fmap.links">rd_links</str>
+
+      <!-- Optional. Specify one or more date formats to parse.  See DateUtil.DEFAULT_DATE_FORMATS for default date formats -->
+      <!-- Matching dateOfCapture format -->
+      <lst name="date.formats">
+          <str>yyyyMMdd</str>
+      </lst>
+
       <!-- capture link hrefs but ignore div attributes -->
       <str name="captureAttr">true</str>
       <str name="fmap.a">links</str>

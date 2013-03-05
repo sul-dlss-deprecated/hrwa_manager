@@ -22,7 +22,7 @@ import org.apache.commons.cli.ParseException;
 import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
-import edu.columbia.ldpd.hrwa.tasks.CompleteReindexOfFSFDataToSolrAndMySQLTask;
+import edu.columbia.ldpd.hrwa.tasks.SitesToSolrAndMySQLTask;
 
 public class HrwaManager {
 	
@@ -59,6 +59,13 @@ public class HrwaManager {
 	public static String		mysqlUsername		= ""; //default, should be overridden
 	public static String		mysqlPassword		= ""; //default, should be overridden
 	
+	public static final String		MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME			= "web_archive_records";
+	public static final String		MYSQL_MIMETYPE_CODES_TABLE_NAME					= "mimetype_codes";
+	public static final String		MYSQL_SITES_TABLE_NAME							= "sites";
+	public static final String		MYSQL_RELATED_HOSTS_TABLE_NAME					= "related_hosts";
+	public static final String		MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME 	= "fully_indexed_archive_files";
+	public static int				mysqlCommitBatchSize							= 1000; //default, can be overridden
+	
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
 	
 	//Shared constants
@@ -66,7 +73,7 @@ public class HrwaManager {
 	
 	//Task stuff
 	private static boolean runDownloadArchiveFilesTask		= false;
-	private static boolean runCompleteReindexOfFSFDataTask	= false;
+	private static boolean runSitesToSolrAndMySQLTask		= false;
 	private static boolean runArchiveToMySQLTask			= false;
 	
 	// Log stuff
@@ -127,8 +134,8 @@ public class HrwaManager {
 		if(runDownloadArchiveFilesTask) {
 			tasksToRun.add(new DownloadArchiveFilesFromArchivitTask());
 		}
-		if(runCompleteReindexOfFSFDataTask) {
-			tasksToRun.add(new CompleteReindexOfFSFDataToSolrAndMySQLTask());
+		if(runSitesToSolrAndMySQLTask) {
+			tasksToRun.add(new SitesToSolrAndMySQLTask());
 		}
 		if(runArchiveToMySQLTask) {
 			tasksToRun.add(new ArchiveToMySQLTask());
@@ -296,12 +303,12 @@ public class HrwaManager {
 	        
 	        if ( cmdLine.hasOption( "archiveitusername") ) {
 	        	archiveItUsername = cmdLine.getOptionValue( "archiveitusername" );
-	        	System.out.println("An archive-it username was supplied.");
+	        	System.out.println("An archive-it username has been supplied.");
 	        }
 	        
 	        if ( cmdLine.hasOption( "archiveitpassword") ) {
 	        	archiveItPassword = cmdLine.getOptionValue( "archiveitpassword" );
-	        	System.out.println("An archive-it password was supplied.");
+	        	System.out.println("An archive-it password has been supplied.");
 	        }
 	        
 	        if ( cmdLine.hasOption( "archiveitcollectionid") ) {
@@ -331,22 +338,32 @@ public class HrwaManager {
 	        
 	        if ( cmdLine.hasOption( "mysqlurl") ) {
 	        	mysqlURL = cmdLine.getOptionValue( "mysqlurl" );
-	        	System.out.println("A MySQL URL was supplied.");
+	        	System.out.println("A MySQL URL has been supplied.");
 	        }
 	        
 	        if ( cmdLine.hasOption( "mysqldatabase") ) {
 	        	mysqlDatabase = cmdLine.getOptionValue( "mysqldatabase" );
-	        	System.out.println("A MySQL database was supplied.");
+	        	System.out.println("A MySQL database has been supplied.");
 	        }
 	        
 	        if ( cmdLine.hasOption( "mysqlusername") ) {
 	        	mysqlUsername = cmdLine.getOptionValue( "mysqlusername" );
-	        	System.out.println("A MySQL username was supplied.");
+	        	System.out.println("A MySQL username has been supplied.");
 	        }
 	        
 	        if ( cmdLine.hasOption( "mysqlpassword") ) {
 	        	mysqlPassword = cmdLine.getOptionValue( "mysqlpassword" );
-	        	System.out.println("A MySQL password was supplied.");
+	        	System.out.println("A MySQL password has been supplied.");
+	        }
+	        
+	        if ( cmdLine.hasOption( "mysqlcommitbatchsize") ) {
+	        	mysqlCommitBatchSize = Integer.parseInt(cmdLine.getOptionValue( "mysqlcommitbatchsize" ));
+	        	System.out.println("A MySQL commit batch size has been supplied.");
+	        	
+	        	if(HrwaManager.mysqlCommitBatchSize < 1) {
+	    			System.out.println("Error: The --mysqlcommitbatchsize must be > 1. Please change the command line argument value that you supplied.");
+	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
+	    		}
 	        }
 	        
 	        //Task 1: downloadarchivefiles
@@ -355,10 +372,10 @@ public class HrwaManager {
 	        	System.out.println("* Will run DownloadArchiveFilesFromArchivitTask.");
 	        }
 	        
-	        //Task 2: completereindexoffsfdata
-	        if ( cmdLine.hasOption( "completereindexoffsfdata") ) {
-	        	HrwaManager.runCompleteReindexOfFSFDataTask = true;
-	        	System.out.println("* Will run CompleteReindexOfFSFDataToSolrAndMySQLTask.");
+	        //Task 2: sitestomysqlandsolr
+	        if ( cmdLine.hasOption( "sitestosolrandmysql") ) {
+	        	HrwaManager.runSitesToSolrAndMySQLTask = true;
+	        	System.out.println("* Will run SutesToSolrAndMySQLTask.");
 	        }
 	        
 	        //Task 3: archivetomysql
@@ -391,7 +408,7 @@ public class HrwaManager {
         options.addOption( "verbose",		false, "More verbose console output." );
         options.addOption( "preview",		false, "Run all operations in preview mode (no real changes will be made)." );
         options.addOption( "downloadarchivefiles",	false, "Run DownloadArchiveFilesFromArchivitTask" );
-        options.addOption( "completereindexoffsfdata",			false, "Run CompleteReindexOfFSFDataToSolrAndMySQLTask" );
+        options.addOption( "sitestosolrandmysql",			false, "Run SitesToSolrAndMySQLTask" );
         options.addOption( "archivetomysql",			false, "Run ArchiveToMySQLTask" );
         
         options.addOption(
@@ -483,6 +500,13 @@ public class HrwaManager {
                 .hasArg()
                 .withDescription( "MySQL password." )
                 .create( "mysqlpassword" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "integer" )
+                .hasArg()
+                .withDescription( "MySQL commit batch size (e.g. commit records in batches of 1000)." )
+                .create( "mysqlcommitbatchsize" )
         );
         
     }

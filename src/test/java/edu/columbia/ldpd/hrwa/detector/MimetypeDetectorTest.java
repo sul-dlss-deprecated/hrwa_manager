@@ -20,7 +20,7 @@ import edu.columbia.ldpd.hrwa.MimetypeDetector;
 
 public class MimetypeDetectorTest {
 	
-	private int numLoopsForMultithreadedTest = 500;
+	private int numLoopsForMultithreadedTest = 250;
 	private int numThreadsToCreateForMultithreadedTest = 4;
 
 	@Test

@@ -75,6 +75,10 @@ public class SolrDoc {
     private String bibKey() {
         return FIELDS.get("bib_key").getValues(m_marcRecord)[0];
     }
+    
+    private String marc005LastModified() {
+        return FIELDS.get("marc_005_last_modified").getValues(m_marcRecord)[0];
+    }
 
     private String fileName(){
          return bibKey() + ".xml";

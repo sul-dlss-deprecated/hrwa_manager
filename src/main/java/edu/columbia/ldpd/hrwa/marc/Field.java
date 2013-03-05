@@ -149,6 +149,10 @@ public abstract class Field {
                 new DefaultField("CLIO bib key, the unique identifier for a site/org",
                         "Site/Organization ID",
                         new String[]{"001"}));
+        FIELDS.put( "marc_005_last_modified",
+                new DefaultField("Marc last modified field, updated when a CLIO record is modified",
+                        "Marc 005 Last Modified",
+                        new String[]{"005"}));
         FIELDS.put( "title",
                 new TitleField("Website title",
                         "Website title",
