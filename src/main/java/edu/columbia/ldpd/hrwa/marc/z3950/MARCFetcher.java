@@ -86,7 +86,8 @@ public class MARCFetcher {
             Node node = b.getNode(query,queryValue);
             client.setFetchSize(1024);
 
-            String oai_marc = "http://www.openarchives.org/OAI/oai_marc";
+            // Below is the default namespace from Jafer, for documentary purposes 
+            // String oai_marc = "http://www.openarchives.org/OAI/oai_marc";
             String slim_marc = "http://www.loc.gov/MARC21/slim";
             client.setRecordSchema(slim_marc);
             client.submitQuery(node);
@@ -105,6 +106,9 @@ public class MARCFetcher {
                 client.setRecordCursor(i);
                 f = client.getCurrentRecord();
                 Node domXml = f.getXML();
+                if (!slim_marc.equals(domXml.getNamespaceURI())) {
+                	throw new RuntimeException("Received document of type " + domXml.getNamespaceURI() + ", but require type " + slim_marc);
+                }
                 String id = get001(domXml);
                 System.out.println("id: " + id);
                 DOMSource xmlSource = new DOMSource(f.getXML());
