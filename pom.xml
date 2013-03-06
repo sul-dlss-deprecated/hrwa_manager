@@ -173,6 +173,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
+				<version>2.4</version>
 				<configuration>
 					<archive>
 						<manifest>
@@ -185,6 +186,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
+				<version>2.0</version>
 				<executions>
 					<execution>
 						<phase>package</phase>
@@ -194,7 +196,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<finalName>standalone-${artifactId}-${version}</finalName>
+					<finalName>standalone-${project.artifactId}-${project.version}</finalName>
 					<!--
 					HRWA Note: Using filter to remove META-INF signing from dependencies
 					that include signed jar files so that I don't get this error:

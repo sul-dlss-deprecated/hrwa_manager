@@ -110,7 +110,7 @@ public class MARCFetcher {
                 	throw new RuntimeException("Received document of type " + domXml.getNamespaceURI() + ", but require type " + slim_marc);
                 }
                 String id = get001(domXml);
-                System.out.println("id: " + id);
+                //System.out.println("Fetching record with bib_key: " + id);
                 DOMSource xmlSource = new DOMSource(f.getXML());
                 StreamResult outputTarget = getResult(id);
                 try{
