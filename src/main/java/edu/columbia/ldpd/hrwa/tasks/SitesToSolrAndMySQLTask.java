@@ -56,6 +56,8 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		File solrFileDir = new File(tempHrwaFSFSolrDocXmlFileDirectory);
 		solrFileDir.mkdirs();
 		
+		System.out.println("Got here1 !");
+		
 		// Create a solr doc file from each marc file!
 		for (File singleMarcFile : marcFileDir.listFiles()) {
 			
@@ -66,7 +68,9 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 			
 			InputStream marcInputStream;
 			try {
+				System.out.println("File name: " + singleMarcFile.getName());
 				marcInputStream = new FileInputStream(singleMarcFile);
+				System.out.println("marcInputStream: " + marcInputStream);
 				new SolrDoc(marcInputStream).serialize(solrFileDir);
 				
 				marcInputStream.close();
@@ -78,6 +82,8 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 				e.printStackTrace();
 			}
 		}
+		
+		System.out.println("Got here2 !");
 		
 		// Index all new Solr doc data into mysql:
 		// This means:
@@ -128,6 +134,7 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		
 		//And now we'll add or update those HrwaSiteRecords
 		MySQLHelper.addOrUpdateHrwaSiteRecordsInMySQLSitesTable(hrwaSiteRecordToAddOrUpdate);
+		
 		
 		//Now let's index all of those solr docs into solr
 		Properties solrPropertiesConfig = new Properties();

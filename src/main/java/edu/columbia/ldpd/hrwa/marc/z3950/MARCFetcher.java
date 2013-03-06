@@ -106,6 +106,7 @@ public class MARCFetcher {
                 f = client.getCurrentRecord();
                 Node domXml = f.getXML();
                 String id = get001(domXml);
+                System.out.println("id: " + id);
                 DOMSource xmlSource = new DOMSource(f.getXML());
                 StreamResult outputTarget = getResult(id);
                 try{

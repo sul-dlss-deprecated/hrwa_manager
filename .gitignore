@@ -19,3 +19,5 @@ tmp/
 
 # Test-related files to ignore
 marc_xml/
+solr_xml/
+marcdebug/

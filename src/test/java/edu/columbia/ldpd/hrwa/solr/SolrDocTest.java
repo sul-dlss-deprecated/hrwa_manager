@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -23,13 +26,26 @@ public class SolrDocTest {
 
     @Rule
     public TemporaryFolder temp = new TemporaryFolder();
+    File solrDir;
+    File marcDir;
+    
+    @Before
+    public void setUp() throws IOException{
+        solrDir = temp.newFolder("solr");
+        marcDir = temp.newFolder("marc");
+    }
+    
+    @After
+    public void tearDown() {
+    	if (solrDir != null) solrDir.delete();
+    	if (marcDir != null) marcDir.delete();
+    }
 
     @Test
     public void testCollectionSource() throws IOException {
         InputStream eis = FacetFieldTest.class.getResourceAsStream("/8540838.solr.xml");
-        File tempDir = temp.newFolder("solr");
         InputStream marc = FacetFieldTest.class.getResourceAsStream("/8540838.marc.xml");
-        File aFile = new SolrDoc(marc).serialize(tempDir);
+        File aFile = new SolrDoc(marc).serialize(solrDir);
         InputStream ais = new FileInputStream(aFile);
         String actual = readString(ais);
         String expected = readString(eis);
@@ -39,8 +55,6 @@ public class SolrDocTest {
     @Test
     public void testIntegration() throws IOException {
         InputStream eis = FacetFieldTest.class.getResourceAsStream("/8540895.solr.xml");
-        File solrDir = temp.newFolder("solr");
-        File marcDir = temp.newFolder("marc");
         MARCFetcher fetcher = new MARCFetcher(marcDir);
         fetcher.fetch(1,1007,"8540895");
         InputStream marc = new FileInputStream(new File(marcDir,"8540895.xml"));

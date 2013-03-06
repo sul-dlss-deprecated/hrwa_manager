@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import edu.columbia.ldpd.hrwa.clio.Main;
@@ -14,6 +15,7 @@ public class SolrIndexerTest {
      * This is not really a test, but a cheap rig to run the prototype code
      * @throws IOException
      */
+	@Ignore
     @Test
     public void test() throws IOException {
         Properties config = new Properties();

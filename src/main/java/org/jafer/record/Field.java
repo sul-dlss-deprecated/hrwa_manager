@@ -52,7 +52,7 @@ public class Field  {
   }
 
   public Node getXML() {
-
+System.out.println(recordFragment.getChildNodes().getLength());
     return recordFragment;
   }
 
