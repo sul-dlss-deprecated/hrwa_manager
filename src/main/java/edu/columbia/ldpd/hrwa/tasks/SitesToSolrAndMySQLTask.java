@@ -5,12 +5,17 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringWriter;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.jafer.exception.JaferException;
+import org.jafer.util.xml.DOMFactory;
+import org.w3c.dom.Document;
 
 import edu.columbia.ldpd.hrwa.HrwaManager;
 import edu.columbia.ldpd.hrwa.HrwaSiteRecord;
@@ -32,6 +37,24 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 	}
 	
 	public void runTask() {
+		
+//		try {
+//			InputStream stream = this.getClass().getClassLoader().getResourceAsStream("org/jafer/xsl/OAIMARC2MARC21slim.xsl");
+//			System.out.println("Found stream? " + stream);
+//			
+//			StringWriter writer = new StringWriter();
+//			IOUtils.copy(stream, writer, "UTF-8");
+//			System.out.println("Content: " + writer.toString());
+//			Document document = DOMFactory.parse(stream);
+//			System.out.println("Document text content: " + document.getTextContent());
+//			stream.close();
+//		} catch (IOException e3) {
+//			// TODO Auto-generated catch block
+//			e3.printStackTrace();
+//		} catch (JaferException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 		
 		writeTaskHeaderMessageAndSetStartTime();
 		
@@ -55,8 +78,6 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		//Create temp directory for generated solr files (which will be generated from the marc files) 
 		File solrFileDir = new File(tempHrwaFSFSolrDocXmlFileDirectory);
 		solrFileDir.mkdirs();
-		
-		System.out.println("Got here1 !");
 		
 		// Create a solr doc file from each marc file!
 		for (File singleMarcFile : marcFileDir.listFiles()) {
@@ -82,8 +103,6 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 				e.printStackTrace();
 			}
 		}
-		
-		System.out.println("Got here2 !");
 		
 		// Index all new Solr doc data into mysql:
 		// This means:

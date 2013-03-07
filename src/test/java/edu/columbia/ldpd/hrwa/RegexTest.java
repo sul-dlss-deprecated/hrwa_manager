@@ -29,7 +29,7 @@ public class RegexTest {
 		
 		long startTime;
 		String detectedMimetype = "application/x-rar-compressed";
-		int loopIterations = 1000000;
+		int loopIterations = 10000000;
 		
 		startTime = System.nanoTime();
 		boolean checkLang = false;
