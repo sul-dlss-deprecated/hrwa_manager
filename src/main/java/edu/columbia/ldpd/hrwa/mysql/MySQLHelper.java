@@ -23,7 +23,8 @@ import edu.columbia.ldpd.hrwa.HrwaSiteRecord;
 public class MySQLHelper {
 	
 	public static final String HRWA_MANAGER_TODO_DELETE = "DELETE";
-	public static final String HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR = "PUSH_CHANGES_TO_SOLR";
+	public static final String HRWA_MANAGER_TODO_UPDATED = "UPDATED";
+	public static final String HRWA_MANAGER_TODO_NEW = "NEW";
 	public static final String HRWA_MANAGER_TODO_FIELD_NAME = "hrwa_manager_todo";
 	
 	public static Connection getNewDBConnection(boolean autoCommit) {
@@ -315,7 +316,7 @@ public class MySQLHelper {
 	 * @throws SQLException
 	 */
 	public static void refreshRelatedHostsTable() throws SQLException{
-
+		
 		Connection conn = getNewDBConnection(true);
 		
 		//Drop table
@@ -331,13 +332,47 @@ public class MySQLHelper {
 			"CREATE TABLE `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (" +
 			"  `site_id` int(10) unsigned NOT NULL," +
 			"  `related_host` varchar(255) NOT NULL," +
+			"  `hrwa_manager_todo` varchar(50) DEFAULT NULL," +
 			"  UNIQUE KEY `related_host` (`related_host`)," +
-			"  KEY `site_id` (`site_id`)" +
+			"  KEY `site_id` (`site_id`)," +
+			"  KEY `hrwa_manager_todo` (`hrwa_manager_todo`)" +
 			") ENGINE=InnoDB DEFAULT CHARSET=utf8;"
 		);
 		
 		pstmt1.execute();
 		pstmt1.close();
+		
+		//Get the list of related hosts from the related_hosts file
+		HashMap<String, String> seedsToRelatedHostsMapFromRelatedHostsFile = new HashMap<String, String>();
+		try {
+			Scanner relatedHostsScanner = new Scanner(new File(HrwaManager.pathToRelatedHostsFile));
+			while (relatedHostsScanner.hasNextLine())
+			{
+			    String[] siteAndRelatedHostParts = relatedHostsScanner.nextLine().split(",");
+			    seedsToRelatedHostsMapFromRelatedHostsFile.put(siteAndRelatedHostParts[0], siteAndRelatedHostParts[1]);
+			}
+		} catch (FileNotFoundException e) {
+			HrwaManager.writeToLog("Error: Could not find related hosts file at: " + HrwaManager.pathToRelatedHostsFile, true, HrwaManager.LOG_TYPE_ERROR);
+			System.exit(HrwaManager.EXIT_CODE_ERROR);
+		}
+		
+		/*
+		
+		//Compare the related hosts file list to what's already in MySQL
+		HashMap<String, Integer> relatedHostsMap = MySQLHelper.getRelatedHostsMap();
+		
+		//Determine which records should be deleted and which records will be marked as newly added
+		HashSet<String> relatedHostsToDelete = new HashSet<String>();
+		HashMap<String, String> newRelatedHostsToAdd = new HashMap<String, String>();
+		
+		for(Map.Entry<String, String> entry : seedsToRelatedHostsMapFromRelatedHostsFile.entrySet()) {
+			String relatedHostFromFile = entry.getValue();
+			if(relatedHostsMap.containsKey(relatedHostFromFile))
+		}
+		
+		*/
+		
+		
 		
 		//And now we need to verify that there aren't any records in this table (if it already existed)
 		
@@ -346,30 +381,15 @@ public class MySQLHelper {
 		if (resultSet.next()) {
 			if(resultSet.getInt(1) == 0) {
 				
-				HashMap<String, String> seedsToRelatedHostsMap = new HashMap<String, String>();
-				
-				//We'll get the set of related hosts from the related hosts file
-				try {
-					Scanner relatedHostsScanner = new Scanner(new File(HrwaManager.pathToRelatedHostsFile));
-					while (relatedHostsScanner.hasNextLine())
-					{
-					    String[] siteAndRelatedHostParts = relatedHostsScanner.nextLine().split(",");
-					    seedsToRelatedHostsMap.put(siteAndRelatedHostParts[0], siteAndRelatedHostParts[1]);
-					}
-				} catch (FileNotFoundException e) {
-					HrwaManager.writeToLog("Error: Could not find related hosts file at: " + HrwaManager.pathToRelatedHostsFile, true, HrwaManager.LOG_TYPE_ERROR);
-					System.exit(HrwaManager.EXIT_CODE_ERROR);
-				}
-				
 				//Link site table ids to related host values
 				
 				HashMap<String, Integer> sitesToSiteIdsMap = MySQLHelper.getSitesMap(); 
 				
-				String relatedHostRecordsInsertStatement = "INSERT INTO `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (`site_id`, `related_host`) VALUES";
+				String relatedHostRecordsInsertStatement = "INSERT INTO `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (`site_id`, `related_host`, `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "`) VALUES";
 				
 				int siteId;
 				String relatedHost;
-				for(Map.Entry<String, String> entry : seedsToRelatedHostsMap.entrySet()) {
+				for(Map.Entry<String, String> entry : seedsToRelatedHostsMapFromRelatedHostsFile.entrySet()) {
 					if(sitesToSiteIdsMap.containsKey(entry.getKey())) {
 						siteId = sitesToSiteIdsMap.get(entry.getKey());
 						relatedHost = entry.getValue();
@@ -380,7 +400,7 @@ public class MySQLHelper {
 							System.exit(HrwaManager.EXIT_CODE_ERROR);
 						}
 						
-						relatedHostRecordsInsertStatement += "(" + siteId + ", '" + relatedHost + "'),";
+						relatedHostRecordsInsertStatement += "(" + siteId + ", '" + relatedHost + "', '" + MySQLHelper.HRWA_MANAGER_TODO_NEW + "'),";
 					} else {
 						//Write out error if this related host cannot be linked to an existing site string
 						HrwaManager.writeToLog("Error: Could not find site in sites table (" + entry.getKey() + "), so there was no record to link to this related host (" + entry.getValue() + ").", true, HrwaManager.LOG_TYPE_ERROR);
@@ -529,7 +549,7 @@ public class MySQLHelper {
 						pstmt1.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
 						pstmt1.setString(8, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
 						pstmt1.setString(9, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
-						pstmt1.setString(10, MySQLHelper.HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR);
+						pstmt1.setString(10, MySQLHelper.HRWA_MANAGER_TODO_NEW);
 						
 						pstmt1.execute();
 					}
@@ -558,7 +578,7 @@ public class MySQLHelper {
 						pstmt2.setString(6, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
 						pstmt2.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
 						pstmt2.setString(8, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
-						pstmt2.setString(9, MySQLHelper.HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR);
+						pstmt2.setString(9, MySQLHelper.HRWA_MANAGER_TODO_UPDATED);
 						pstmt2.setString(10, singleRecord.getSingleValuedFieldValue("bib_key"));
 						
 						System.out.println("Updating bib_key record " + singleRecord.getSingleValuedFieldValue("bib_key") + " with value: " + singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));

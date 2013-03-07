@@ -292,7 +292,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		}
 		this.mainRecordInsertPstmt.setLong  (	17, loadTimestamp							);
 		this.mainRecordInsertPstmt.setBoolean(	18, linkedViaRelatedHost					);
-		this.mainRecordInsertPstmt.setString  (	19, MySQLHelper.HRWA_MANAGER_TODO_PUSH_CHANGES_TO_SOLR	);
+		this.mainRecordInsertPstmt.setString  (	19, MySQLHelper.HRWA_MANAGER_TODO_UPDATED	);
 		
 		this.mainRecordInsertPstmt.addBatch();
 		if ((numRelevantArchiveRecordsProcessed + 1) % HrwaManager.mysqlCommitBatchSize == 0) {

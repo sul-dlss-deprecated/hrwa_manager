@@ -24,6 +24,7 @@ import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
 import edu.columbia.ldpd.hrwa.tasks.SitesToSolrAndMySQLTask;
+import edu.columbia.ldpd.hrwa.tasks.TalkToClioTestTask;
 import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
 
 public class HrwaManager {
@@ -79,6 +80,7 @@ public class HrwaManager {
 	private static boolean runDownloadArchiveFilesTask		= false;
 	private static boolean runSitesToSolrAndMySQLTask		= false;
 	private static boolean runArchiveToMySQLTask			= false;
+	private static boolean runTalkToClioTestTask			= false;
 	
 	// Log stuff
 	private static BufferedWriter mysqlStandardLogWriter;
@@ -148,6 +150,9 @@ public class HrwaManager {
 		}
 		if(runArchiveToMySQLTask) {
 			tasksToRun.add(new ArchiveToMySQLTask());
+		}
+		if(runTalkToClioTestTask) {
+			tasksToRun.add(new TalkToClioTestTask());
 		}
 		
 		//And run those tasks
@@ -404,6 +409,12 @@ public class HrwaManager {
 	        	HrwaManager.runArchiveToMySQLTask = true;
 	        	System.out.println("* Will run ArchiveToMySQLTask.");
 	        }
+	        
+	        //TODO: Remove this task when we're done testing
+	        if( cmdLine.hasOption( "talktocliotest") ) {
+	        	HrwaManager.runTalkToClioTestTask = true;
+	        	System.out.println("* Will run TalkToClioTestTask.");
+	        }
         }
         else
         {
@@ -431,6 +442,7 @@ public class HrwaManager {
         options.addOption( "downloadarchivefiles",	false, "Run DownloadArchiveFilesFromArchivitTask" );
         options.addOption( "sitestosolrandmysql",			false, "Run SitesToSolrAndMySQLTask" );
         options.addOption( "archivetomysql",			false, "Run ArchiveToMySQLTask" );
+        options.addOption( "talktocliotest",			false, "Run TalkToClioTestTask" );
         
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
