@@ -89,9 +89,8 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 			
 			InputStream marcInputStream;
 			try {
-				System.out.println("File name: " + singleMarcFile.getName());
+				System.out.println("Creating temporary file: " + singleMarcFile.getName());
 				marcInputStream = new FileInputStream(singleMarcFile);
-				System.out.println("marcInputStream: " + marcInputStream);
 				new SolrDoc(marcInputStream).serialize(solrFileDir);
 				
 				marcInputStream.close();
@@ -168,9 +167,10 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		}
         
         try {
-			MySQLHelper.refreshRelatedHostsTable();
+			MySQLHelper.updateRelatedHostsTableFromRelatedHostsFile();
 		} catch (SQLException e) {
-			HrwaManager.writeToLog("Error: Could not refresh the MySQL related hosts tables.", true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog("Error: Could not update the MySQL related hosts tables.", true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
 		}
 		
 		//If the temp directories are empty, delete them (and all files in them)

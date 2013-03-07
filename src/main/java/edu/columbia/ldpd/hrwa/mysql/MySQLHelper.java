@@ -315,21 +315,15 @@ public class MySQLHelper {
 	 * https://wiki.cul.columbia.edu/display/webresourcescollection/Related+hosts+for+HRWA+portal
 	 * @throws SQLException
 	 */
-	public static void refreshRelatedHostsTable() throws SQLException{
+	public static void updateRelatedHostsTableFromRelatedHostsFile() throws SQLException{
+		
+		HrwaManager.writeToLog("Updating related hosts table...", true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		Connection conn = getNewDBConnection(true);
-		
-		//Drop table
-		PreparedStatement pstmt0 = conn.prepareStatement(
-			"DROP TABLE IF EXISTS `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "`;"
-		);
-		
-		pstmt0.execute();
-		pstmt0.close();
 			
 		//Create table
 		PreparedStatement pstmt1 = conn.prepareStatement(
-			"CREATE TABLE `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (" +
+			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (" +
 			"  `site_id` int(10) unsigned NOT NULL," +
 			"  `related_host` varchar(255) NOT NULL," +
 			"  `hrwa_manager_todo` varchar(50) DEFAULT NULL," +
@@ -343,82 +337,97 @@ public class MySQLHelper {
 		pstmt1.close();
 		
 		//Get the list of related hosts from the related_hosts file
-		HashMap<String, String> seedsToRelatedHostsMapFromRelatedHostsFile = new HashMap<String, String>();
+		HashMap<String, String> relatedHostsToSeedsMapFromRelatedHostsFile = new HashMap<String, String>();
 		try {
 			Scanner relatedHostsScanner = new Scanner(new File(HrwaManager.pathToRelatedHostsFile));
 			while (relatedHostsScanner.hasNextLine())
 			{
 			    String[] siteAndRelatedHostParts = relatedHostsScanner.nextLine().split(",");
-			    seedsToRelatedHostsMapFromRelatedHostsFile.put(siteAndRelatedHostParts[0], siteAndRelatedHostParts[1]);
+			    relatedHostsToSeedsMapFromRelatedHostsFile.put(siteAndRelatedHostParts[1], siteAndRelatedHostParts[0]);
 			}
 		} catch (FileNotFoundException e) {
 			HrwaManager.writeToLog("Error: Could not find related hosts file at: " + HrwaManager.pathToRelatedHostsFile, true, HrwaManager.LOG_TYPE_ERROR);
 			System.exit(HrwaManager.EXIT_CODE_ERROR);
 		}
 		
-		/*
-		
 		//Compare the related hosts file list to what's already in MySQL
-		HashMap<String, Integer> relatedHostsMap = MySQLHelper.getRelatedHostsMap();
+		HashMap<String, Integer> relatedHostsMapFromMySQL = MySQLHelper.getRelatedHostsMap();
 		
 		//Determine which records should be deleted and which records will be marked as newly added
-		HashSet<String> relatedHostsToDelete = new HashSet<String>();
-		HashMap<String, String> newRelatedHostsToAdd = new HashMap<String, String>();
+		HashMap<String, String> relatedHostsToAddMappedToSiteSeeds = new HashMap<String, String>();
+		HashSet<String> relatedHostsToDelete = new HashSet<String>(relatedHostsMapFromMySQL.keySet());
+		relatedHostsToDelete.removeAll(relatedHostsToSeedsMapFromRelatedHostsFile.keySet());
 		
-		for(Map.Entry<String, String> entry : seedsToRelatedHostsMapFromRelatedHostsFile.entrySet()) {
-			String relatedHostFromFile = entry.getValue();
-			if(relatedHostsMap.containsKey(relatedHostFromFile))
+		for(Map.Entry<String, String> entry : relatedHostsToSeedsMapFromRelatedHostsFile.entrySet()) {
+			String relatedHostActualHostFromFile = entry.getKey();
+			String relatedHostSiteSeedFromFile = entry.getValue();
+			if( ! relatedHostsMapFromMySQL.containsKey(relatedHostActualHostFromFile) ) {
+				relatedHostsToAddMappedToSiteSeeds.put(relatedHostActualHostFromFile, relatedHostSiteSeedFromFile);
+			}
 		}
 		
-		*/
+		HrwaManager.writeToLog("New related hosts to add: " + relatedHostsToAddMappedToSiteSeeds.size(), true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Related hosts to delete: " + relatedHostsToDelete.size(), true, HrwaManager.LOG_TYPE_STANDARD);
 		
-		
-		
-		//And now we need to verify that there aren't any records in this table (if it already existed)
-		
-		PreparedStatement pstmt2 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME);
-		ResultSet resultSet = pstmt2.executeQuery();
-		if (resultSet.next()) {
-			if(resultSet.getInt(1) == 0) {
-				
-				//Link site table ids to related host values
-				
-				HashMap<String, Integer> sitesToSiteIdsMap = MySQLHelper.getSitesMap(); 
-				
-				String relatedHostRecordsInsertStatement = "INSERT INTO `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (`site_id`, `related_host`, `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "`) VALUES";
-				
-				int siteId;
-				String relatedHost;
-				for(Map.Entry<String, String> entry : seedsToRelatedHostsMapFromRelatedHostsFile.entrySet()) {
-					if(sitesToSiteIdsMap.containsKey(entry.getKey())) {
-						siteId = sitesToSiteIdsMap.get(entry.getKey());
-						relatedHost = entry.getValue();
-						
-						//For safety, make sure that the relatedHost doesn't contain any single quotes
-						if(relatedHost.contains("'")) {
-							HrwaManager.writeToLog("Error: Single quotation mark found in related host (" + relatedHost + "). This will lead to an invalid MySQL insert statement.", true, HrwaManager.LOG_TYPE_ERROR);
-							System.exit(HrwaManager.EXIT_CODE_ERROR);
-						}
-						
-						relatedHostRecordsInsertStatement += "(" + siteId + ", '" + relatedHost + "', '" + MySQLHelper.HRWA_MANAGER_TODO_NEW + "'),";
-					} else {
-						//Write out error if this related host cannot be linked to an existing site string
-						HrwaManager.writeToLog("Error: Could not find site in sites table (" + entry.getKey() + "), so there was no record to link to this related host (" + entry.getValue() + ").", true, HrwaManager.LOG_TYPE_ERROR);
-						System.exit(HrwaManager.EXIT_CODE_ERROR);
-					}
+		//First delete any related hosts that need to be deleted:
+		if(relatedHostsToDelete.size() > 0) {
+			String relatedHostRecordsDeletionStatement = "DELETE FROM `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` WHERE related_host IN (";
+			
+			for(String relatedHostUrlString : relatedHostsToDelete) {
+				//For safety, make sure that the relatedHostUrlString doesn't contain any single quotes
+				if(relatedHostUrlString.contains("'")) {
+					HrwaManager.writeToLog("Error: Single quotation mark found in related host url string (" + relatedHostUrlString + "). This will lead to an invalid MySQL insert statement.", true, HrwaManager.LOG_TYPE_ERROR);
+					System.exit(HrwaManager.EXIT_CODE_ERROR);
 				}
 				
-				//And remove the last comma because it's not valid
-				relatedHostRecordsInsertStatement = relatedHostRecordsInsertStatement.substring(0, relatedHostRecordsInsertStatement.length()-1);
-				
-				PreparedStatement pstmt3 = conn.prepareStatement(relatedHostRecordsInsertStatement);
-				
-				pstmt3.execute();
-				pstmt3.close();
+				relatedHostRecordsDeletionStatement += "'" + relatedHostUrlString + "',";
 			}
-		 }
-        
-		pstmt2.close();
+			
+			//And remove the last comma because it's not valid, and then add ")" to complete the insert statement 
+			relatedHostRecordsDeletionStatement = relatedHostRecordsDeletionStatement.substring(0, relatedHostRecordsDeletionStatement.length()-1) + ")";
+			
+			PreparedStatement pstmt2 = conn.prepareStatement(relatedHostRecordsDeletionStatement);
+			
+			pstmt2.execute();
+			pstmt2.close();
+		}
+		
+		//Then add all new related hosts to related hosts table, linking site table ids to related host values
+		if(relatedHostsToAddMappedToSiteSeeds.size() > 0) {
+			
+			HashMap<String, Integer> sitesToSiteIdsMap = MySQLHelper.getSitesMap();
+			
+			String relatedHostRecordsInsertStatement = "INSERT INTO `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (`site_id`, `related_host`, `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "`) VALUES";
+			
+			int siteId;
+			String relatedHost;
+			for(Map.Entry<String, String> entry : relatedHostsToAddMappedToSiteSeeds.entrySet()) {
+				if(sitesToSiteIdsMap.containsKey(entry.getValue())) {
+					siteId = sitesToSiteIdsMap.get(entry.getValue());
+					relatedHost = entry.getKey();
+					
+					//For safety, make sure that the relatedHost doesn't contain any single quotes
+					if(relatedHost.contains("'")) {
+						HrwaManager.writeToLog("Error: Single quotation mark found in related host (" + relatedHost + "). This will lead to an invalid MySQL insert statement.", true, HrwaManager.LOG_TYPE_ERROR);
+						System.exit(HrwaManager.EXIT_CODE_ERROR);
+					}
+					
+					relatedHostRecordsInsertStatement += "(" + siteId + ", '" + relatedHost + "', '" + MySQLHelper.HRWA_MANAGER_TODO_NEW + "'),";
+				} else {
+					//Write out error if this related host cannot be linked to an existing site string
+					HrwaManager.writeToLog("Error: Could not find site in sites table (" + entry.getKey() + "), so there was no record to link to this related host (" + entry.getValue() + ").", true, HrwaManager.LOG_TYPE_ERROR);
+					System.exit(HrwaManager.EXIT_CODE_ERROR);
+				}
+			}
+			
+			//And remove the last comma because it's not valid
+			relatedHostRecordsInsertStatement = relatedHostRecordsInsertStatement.substring(0, relatedHostRecordsInsertStatement.length()-1);
+			
+			PreparedStatement pstmt3 = conn.prepareStatement(relatedHostRecordsInsertStatement);
+			
+			pstmt3.execute();
+			pstmt3.close();
+		}
 		
         conn.close();
 	}
