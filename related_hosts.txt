@@ -13,7 +13,7 @@ fohrid.org.np,www.fohrid.org/dwn/
 helem.net,www.barramag.com
 hrc.co.nz,hrc.co.nz.woopra-ns.com
 hrforumzim.org,hrforumzim.huritech.org
-hrfssaudiarabia.org/,workspaces.acrobat.com
+hrfssaudiarabia.org,workspaces.acrobat.com
 humanrights.dk,menneskeret.dk
 ifhhro.org,ifhhro-training-manual.org
 minorityrights.org,minorityrights.wordpress.com

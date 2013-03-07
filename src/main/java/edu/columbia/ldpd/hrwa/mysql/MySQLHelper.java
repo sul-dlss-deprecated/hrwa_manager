@@ -390,6 +390,8 @@ public class MySQLHelper {
 			
 			pstmt2.execute();
 			pstmt2.close();
+			
+			HrwaManager.writeToLog("Deleted " + relatedHostsToDelete.size() + " outdated related hosts.", true, HrwaManager.LOG_TYPE_STANDARD);
 		}
 		
 		//Then add all new related hosts to related hosts table, linking site table ids to related host values
@@ -415,7 +417,7 @@ public class MySQLHelper {
 					relatedHostRecordsInsertStatement += "(" + siteId + ", '" + relatedHost + "', '" + MySQLHelper.HRWA_MANAGER_TODO_NEW + "'),";
 				} else {
 					//Write out error if this related host cannot be linked to an existing site string
-					HrwaManager.writeToLog("Error: Could not find site in sites table (" + entry.getKey() + "), so there was no record to link to this related host (" + entry.getValue() + ").", true, HrwaManager.LOG_TYPE_ERROR);
+					HrwaManager.writeToLog("Error: Could not find site in sites table (" + entry.getValue() + "), so there was no record to link to this related host (" + entry.getKey() + ").", true, HrwaManager.LOG_TYPE_ERROR);
 					System.exit(HrwaManager.EXIT_CODE_ERROR);
 				}
 			}
@@ -427,6 +429,8 @@ public class MySQLHelper {
 			
 			pstmt3.execute();
 			pstmt3.close();
+			
+			HrwaManager.writeToLog("Addded " + relatedHostsToAddMappedToSiteSeeds.size() + " new related hosts.", true, HrwaManager.LOG_TYPE_STANDARD);
 		}
 		
         conn.close();
