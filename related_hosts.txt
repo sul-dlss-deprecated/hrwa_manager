@@ -1,4 +1,6 @@
 achrs.org,www.achrs.com
+afapredesa-arabe.blogspot.com,afapredesa.blogspot.com
+amnesty.eu,amnesty-eu.temp.brainlane.com
 amnistia.org.mx,alzatuvoz.org
 bahrainrights.org,bahrainrights.hopto.org/ar
 camp.org.pk,www.understandingfata.org
@@ -8,8 +10,10 @@ crisisgroup.org,www.crisisgroup.be
 eaaf.typepad.com,eaaf.typepad.org
 eaaf.typepad.com,eaaf.org/eaaf/styles
 fohrid.org.np,www.fohrid.org/dwn/
+helem.net,www.barramag.com
 hrc.co.nz,hrc.co.nz.woopra-ns.com
 hrforumzim.org,hrforumzim.huritech.org
+hrfssaudiarabia.org/,workspaces.acrobat.com
 humanrights.dk,menneskeret.dk
 ifhhro.org,ifhhro-training-manual.org
 minorityrights.org,minorityrights.wordpress.com
@@ -18,6 +22,7 @@ observatorio.cl,www.monitoreandoderechos.cl
 ombudsman.mk,smultimedia.dynalias.net/Ombudsman/
 ombudsman.mk,ombudsman.mk/upload/documents/
 physiciansforhumanrights.org,phrtorturepapers.org
+physiciansforhumanrights.org,s3.amazonaws.com/PHR_Reports
 publicverdict.org,eng.publicverdict.ru
 rdc-viol.org,www.rdcviolencesexuelle.org
 savetibet.org,www.savetibet.fr
