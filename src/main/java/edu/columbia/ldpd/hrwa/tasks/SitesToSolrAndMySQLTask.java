@@ -27,7 +27,7 @@ import edu.columbia.ldpd.hrwa.solr.SolrIndexer;
 
 public class SitesToSolrAndMySQLTask extends HrwaTask {
 	
-	private static String PATH_TO_FSF_SOLR_PROPERTIES_FILE = "/fsf_solr.properties";
+	private static String PATH_TO_FSF_SOLR_PROPERTIES_FILE = "/fsf_solr.local.properties";
 	
 	private static String tempHrwaClioMarcXmlFileDirectory =  HrwaManager.tmpDirPath + File.separator + "hrwa_clio_marc_xml_files";
 	private static String tempHrwaFSFSolrDocXmlFileDirectory =  HrwaManager.tmpDirPath + File.separator + "hrwa_fsf_solr_doc_xml_files";

@@ -20,6 +20,7 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import edu.columbia.ldpd.hrwa.tasks.ArchiveFileReadTestTask;
 import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
@@ -80,7 +81,9 @@ public class HrwaManager {
 	private static boolean runDownloadArchiveFilesTask		= false;
 	private static boolean runSitesToSolrAndMySQLTask		= false;
 	private static boolean runArchiveToMySQLTask			= false;
+	
 	private static boolean runTalkToClioTestTask			= false;
+	private static boolean runArchiveFileReadTestTask		= false;
 	
 	// Log stuff
 	private static BufferedWriter mysqlStandardLogWriter;
@@ -142,6 +145,16 @@ public class HrwaManager {
 		}
 		
 		//Determine which tasks to run
+		
+		//Test tasks
+		if(runTalkToClioTestTask) {
+			tasksToRun.add(new TalkToClioTestTask());
+		}
+		if(runArchiveFileReadTestTask) {
+			tasksToRun.add(new ArchiveFileReadTestTask());
+		}
+		
+		//Real tasks
 		if(runDownloadArchiveFilesTask) {
 			tasksToRun.add(new DownloadArchiveFilesFromArchivitTask());
 		}
@@ -151,9 +164,7 @@ public class HrwaManager {
 		if(runArchiveToMySQLTask) {
 			tasksToRun.add(new ArchiveToMySQLTask());
 		}
-		if(runTalkToClioTestTask) {
-			tasksToRun.add(new TalkToClioTestTask());
-		}
+		
 		
 		//And run those tasks
 		HrwaManager.writeToLog("Total number of tasks to run: " + tasksToRun.size(), true, LOG_TYPE_STANDARD);
@@ -392,6 +403,18 @@ public class HrwaManager {
 	    		}
 	        }
 	        
+	        //Test Task
+	        if( cmdLine.hasOption( "talktocliotest") ) {
+	        	HrwaManager.runTalkToClioTestTask = true;
+	        	System.out.println("* Will run TalkToClioTestTask.");
+	        }
+	        
+	        //Test Task
+	        if( cmdLine.hasOption( "archivefilereadtest") ) {
+	        	HrwaManager.runArchiveFileReadTestTask = true;
+	        	System.out.println("* Will run ArchiveFileReadTestTask.");
+	        }
+	        
 	        //Task 1: downloadarchivefiles
 	        if ( cmdLine.hasOption( "downloadarchivefiles") ) {
 	        	HrwaManager.runDownloadArchiveFilesTask = true;
@@ -410,11 +433,6 @@ public class HrwaManager {
 	        	System.out.println("* Will run ArchiveToMySQLTask.");
 	        }
 	        
-	        //TODO: Remove this task when we're done testing
-	        if( cmdLine.hasOption( "talktocliotest") ) {
-	        	HrwaManager.runTalkToClioTestTask = true;
-	        	System.out.println("* Will run TalkToClioTestTask.");
-	        }
         }
         else
         {
@@ -440,9 +458,10 @@ public class HrwaManager {
         options.addOption( "verbose",		false, "More verbose console output." );
         options.addOption( "preview",		false, "Run all operations in preview mode (no real changes will be made)." );
         options.addOption( "downloadarchivefiles",	false, "Run DownloadArchiveFilesFromArchivitTask" );
-        options.addOption( "sitestosolrandmysql",			false, "Run SitesToSolrAndMySQLTask" );
+        options.addOption( "sitestosolrandmysql",		false, "Run SitesToSolrAndMySQLTask" );
         options.addOption( "archivetomysql",			false, "Run ArchiveToMySQLTask" );
         options.addOption( "talktocliotest",			false, "Run TalkToClioTestTask" );
+        options.addOption( "archivefilereadtest",		false, "Run ArchiveFileReadTestTask" );
         
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
