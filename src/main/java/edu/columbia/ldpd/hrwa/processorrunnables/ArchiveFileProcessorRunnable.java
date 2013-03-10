@@ -1,4 +1,4 @@
-package edu.columbia.ldpd.hrwa;
+package edu.columbia.ldpd.hrwa.processorrunnables;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -25,6 +25,8 @@ import org.archive.nutchwax.tools.ArcReader;
 
 import com.googlecode.mp4parser.h264.model.HRDParameters;
 
+import edu.columbia.ldpd.hrwa.HrwaManager;
+import edu.columbia.ldpd.hrwa.MimetypeDetector;
 import edu.columbia.ldpd.hrwa.mysql.MySQLHelper;
 import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
@@ -97,6 +99,8 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 					} else {
 						processArchiveFile(currentArcFileBeingProcessed);
 					}
+				} else {
+					HrwaManager.writeToLog("PREVIEWING the MySQL indexing of file (" + currentArcFileBeingProcessed.getName() + "). No actual database changes will be made.", true, HrwaManager.LOG_TYPE_NOTICE);
 				}
 				
 				//done processing!
@@ -143,6 +147,9 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	}
 	
 	public void processArchiveFile(File archiveFile) {
+		
+		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Start process of archive file " + archiveFile.getName(), true, HrwaManager.LOG_TYPE_STANDARD);
+		
 		//We need to get an ArchiveReader for this file
 		ArchiveReader archiveReader = null;
 		
@@ -217,6 +224,8 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 				e.printStackTrace();
 			}
 		}
+		
+		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Processing of archive file " + archiveFile.getName() + " COMPLETE!", true, HrwaManager.LOG_TYPE_STANDARD);
 		
 	}
 	
@@ -329,8 +338,11 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	 * @param archiveFile
 	 */
 	public void queueArchiveFileForProcessing(File archiveFile) {
-		if(currentArcFileBeingProcessed != null) {
-			HrwaManager.writeToLog("Error: ArchiveRecordProcessorRunnable with id " + this.uniqueRunnableId + " cannot accept a new ARCRecord to process because isProcessingARecord == true. This error should never appear if things were coded properly.", true, HrwaManager.LOG_TYPE_ERROR);
+		
+		HrwaManager.writeToLog("Notice: Archive file claimed by ArchiveFileProcessorRunnable " + this.getUniqueRunnableId() + " (" + archiveFile.getName() + ")", true, HrwaManager.LOG_TYPE_NOTICE);
+		
+		if(isProcessingAnArchiveFile) {
+			HrwaManager.writeToLog("Error: ArchiveRecordProcessorRunnable with id " + this.uniqueRunnableId + " cannot accept a new archive file to process because isProcessingAnArchiveFile == true. This error should never appear if things were coded properly.", true, HrwaManager.LOG_TYPE_ERROR);
 		} else {
 			synchronized (isProcessingAnArchiveFile) {
 				currentArcFileBeingProcessed = archiveFile;

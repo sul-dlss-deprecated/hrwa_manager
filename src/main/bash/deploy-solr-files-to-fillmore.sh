@@ -1,6 +1,6 @@
 #! /bin/bash
-SERVER=spatha.cul.columbia.edu
-SOLR_USER=tomcat
+SERVER=fillmore.cul.columbia.edu
+SOLR_USER=litojetty
 SOLR_FSF_CONF_DIR=/opt/solr-4.1/hrwa-fsf/conf/
 SOLR_ASF_CONF_DIR=/opt/solr-4.1/hrwa-asf/conf/
 
@@ -19,11 +19,10 @@ ssh $SOLR_USER@$SERVER $REMOTE_MOVE_COMMANDS_TO_RUN
 
 #Push latest schema and solrconfig files to the server
 
-scp -p $BASEDIR/../../../solrconf/fsf/solr4.1-fsf.schema.xml $SOLR_USER@$SERVER:$SOLR_FSF_CONF_DIR/schema.xml
-scp -p $BASEDIR/../../../solrconf/fsf/solr4.1-fsf.solrconfig.xml $SOLR_USER@$SERVER:$SOLR_FSF_CONF_DIR/solrconfig.xml
-scp -p $BASEDIR/../../../solrconf/asf/solr4.1-asf.schema.xml $SOLR_USER@$SERVER:$SOLR_ASF_CONF_DIR/schema.xml
-scp -p $BASEDIR/../../../solrconf/asf/solr4.1-asf.solrconfig.xml $SOLR_USER@$SERVER:$SOLR_ASF_CONF_DIR/solrconfig.xml
+scp -p $BASEDIR/../resources/solrconf/fsf/solr4.1-fsf.schema.xml $SOLR_USER@$SERVER:$SOLR_FSF_CONF_DIR/schema.xml
+scp -p $BASEDIR/../resources/solrconf/fsf/solr4.1-fsf.solrconfig.xml $SOLR_USER@$SERVER:$SOLR_FSF_CONF_DIR/solrconfig.xml
+scp -p $BASEDIR/../resources/solrconf/asf/solr4.1-asf.schema.xml $SOLR_USER@$SERVER:$SOLR_ASF_CONF_DIR/schema.xml
+scp -p $BASEDIR/../resources/solrconf/asf/solr4.1-asf.solrconfig.xml $SOLR_USER@$SERVER:$SOLR_ASF_CONF_DIR/solrconfig.xml
 
-#Restart tomcat
-RESTART_TOMCAT_COMMAND="echo 'Shutting down tomcat...';/opt/tomcat-hrwa-8181/bin/shutdown.sh;echo 'Waiting 5 seconds to allow shutdown to complete...';sleep 5;echo 'Restarting tomcat...';/opt/tomcat-hrwa-8181/bin/startup.sh"
-ssh $SOLR_USER@$SERVER $RESTART_TOMCAT_COMMAND
+#Restart jetty as self (requires password)
+echo 'To make these change live, ssh into $SERVER and run: sudo /sbin/service litojetty restart'

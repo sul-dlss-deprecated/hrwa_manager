@@ -24,6 +24,7 @@ import edu.columbia.ldpd.hrwa.tasks.ArchiveFileReadTestTask;
 import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
+import edu.columbia.ldpd.hrwa.tasks.MySQLArchiveRecordsToSolrTask;
 import edu.columbia.ldpd.hrwa.tasks.SitesToSolrAndMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.TalkToClioTestTask;
 import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
@@ -69,7 +70,9 @@ public class HrwaManager {
 	public static final String		MYSQL_SITES_TABLE_NAME							= "sites";
 	public static final String		MYSQL_RELATED_HOSTS_TABLE_NAME					= "related_hosts";
 	public static final String		MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME 	= "fully_indexed_archive_files";
+	
 	public static int				mysqlCommitBatchSize							= 1000; //default, can be overridden
+	public static int				mySQLToSolrRowRetrievalSize						= 1000; //default, can be overridden
 	
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
 	public static long maxMemoryThresholdInBytesForStartingNewThreadProcesses = (int)(maxAvailableMemoryInBytes*.75); //default, might be overridden
@@ -81,6 +84,7 @@ public class HrwaManager {
 	private static boolean runDownloadArchiveFilesTask		= false;
 	private static boolean runSitesToSolrAndMySQLTask		= false;
 	private static boolean runArchiveToMySQLTask			= false;
+	private static boolean runMySQLArchiveRecordsToSolrTask = true;
 	
 	private static boolean runTalkToClioTestTask			= false;
 	private static boolean runArchiveFileReadTestTask		= false;
@@ -164,7 +168,9 @@ public class HrwaManager {
 		if(runArchiveToMySQLTask) {
 			tasksToRun.add(new ArchiveToMySQLTask());
 		}
-		
+		if(runMySQLArchiveRecordsToSolrTask) {
+			tasksToRun.add(new MySQLArchiveRecordsToSolrTask());
+		}
 		
 		//And run those tasks
 		HrwaManager.writeToLog("Total number of tasks to run: " + tasksToRun.size(), true, LOG_TYPE_STANDARD);
@@ -403,6 +409,16 @@ public class HrwaManager {
 	    		}
 	        }
 	        
+	        if ( cmdLine.hasOption( "mysqltosolrrowretrievalsize") ) {
+	        	mySQLToSolrRowRetrievalSize = Integer.parseInt(cmdLine.getOptionValue( "mysqltosolrrowretrievalsize" ));
+	        	System.out.println("A MySQL to Solr row retrieval size has been supplied.");
+	        	
+	        	if(HrwaManager.mySQLToSolrRowRetrievalSize < 1) {
+	    			System.out.println("Error: The --mySQLToSolrRowRetrievalSize must be > 1. Please change the command line argument value that you supplied.");
+	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
+	    		}
+	        }
+	        
 	        //Test Task
 	        if( cmdLine.hasOption( "talktocliotest") ) {
 	        	HrwaManager.runTalkToClioTestTask = true;
@@ -431,6 +447,12 @@ public class HrwaManager {
 	        if ( cmdLine.hasOption( "archivetomysql") ) {
 	        	HrwaManager.runArchiveToMySQLTask = true;
 	        	System.out.println("* Will run ArchiveToMySQLTask.");
+	        }
+	        
+	        //Task 4: mysqlarchiverecordtosolr
+	        if ( cmdLine.hasOption( "mysqlarchiverecordtosolr") ) {
+	        	HrwaManager.runMySQLArchiveRecordsToSolrTask = true;
+	        	System.out.println("* Will run MySQLArchiveRecordsToSolrTask.");
 	        }
 	        
         }
@@ -462,6 +484,7 @@ public class HrwaManager {
         options.addOption( "archivetomysql",			false, "Run ArchiveToMySQLTask" );
         options.addOption( "talktocliotest",			false, "Run TalkToClioTestTask" );
         options.addOption( "archivefilereadtest",		false, "Run ArchiveFileReadTestTask" );
+        options.addOption( "mysqlarchiverecordtosolr",	false, "Run MySQLArchiveRecordsToSolrTask" );
         
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
@@ -573,6 +596,13 @@ public class HrwaManager {
                 .hasArg()
                 .withDescription( "MySQL commit batch size (e.g. commit records in batches of 1000)." )
                 .create( "mysqlcommitbatchsize" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "integer" )
+                .hasArg()
+                .withDescription( "MySQL to solr row retrieval size (e.g. When indexing to Solr, select records from MySQL in groups of 1000)." )
+                .create( "mysqltosolrrowretrievalsize" )
         );
         
     }

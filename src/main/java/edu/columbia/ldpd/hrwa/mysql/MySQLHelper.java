@@ -16,9 +16,9 @@ import java.util.Scanner;
 
 import org.apache.commons.lang.StringUtils;
 
-import edu.columbia.ldpd.hrwa.ArchiveFileProcessorRunnable;
 import edu.columbia.ldpd.hrwa.HrwaManager;
 import edu.columbia.ldpd.hrwa.HrwaSiteRecord;
+import edu.columbia.ldpd.hrwa.processorrunnables.ArchiveFileProcessorRunnable;
 
 public class MySQLHelper {
 	
@@ -668,6 +668,33 @@ public class MySQLHelper {
 		
 	}
 	
+	public static long getMaxIdFromWebArchiveRecordsTable() {
+
+		try {
+			Connection conn = getNewDBConnection(true);
+			
+			PreparedStatement pstmt1 = conn.prepareStatement("SELECT MAX(id) FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME);
+			ResultSet resultSet = pstmt1.executeQuery();
+			if (resultSet.next()) {
+				return resultSet.getLong(1);
+			 }
+	        
+			pstmt1.close();
+	        conn.close();
+        
+		} catch (SQLException e) {
+			HrwaManager.writeToLog("An error occurred while attempting to retrieve the max id from the web archive records table.", true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+			System.exit(0);
+		}
+		
+		//We should never get to this point in the code, but if we do then that means that something went wrong while retrieving the max archive record ID.
+		HrwaManager.writeToLog("Error: Could not retrieve max id from web archive records table.  Something went wrong!", true, HrwaManager.LOG_TYPE_ERROR);
+        System.exit(HrwaManager.EXIT_CODE_ERROR);
+        
+        return -1; //this line is necessary to avoid a compiler error (if we don't return anything)
+	}
+	
 	public static boolean archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(String nameOfArchiveFile) {
 
 		try {
@@ -689,7 +716,7 @@ public class MySQLHelper {
 			HrwaManager.writeToLog("An error occurred while checking the fully indexed archive files table to see if the following archive file has already been indexed: " + nameOfArchiveFile, true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
 			System.exit(0);
-	}
+		}
         
         return false;
 	}

@@ -51,19 +51,20 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import edu.columbia.ldpd.hrwa.HrwaManager;
 import edu.columbia.ldpd.hrwa.mysql.MySQLHelper;
 import edu.columbia.ldpd.hrwa.processorrunnables.ArchiveFileProcessorRunnable;
+import edu.columbia.ldpd.hrwa.processorrunnables.MySQLArchiveRecordToSolrProcessorRunnable;
 
-public class ArchiveToMySQLTask extends HrwaTask {
+public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 	
 	private String[] validArchiveFileExtensions = {"arc.gz", "warc.gz"};
 	
 	//How many threads will we create?  HrwaManager.maxUsableProcessors
-	private ArchiveFileProcessorRunnable[] archiveRecordProcessorRunnables;
-	Future[] archiveRecordProcessorFutures;
+	private MySQLArchiveRecordToSolrProcessorRunnable[] mySQLArchiveRecordToSolrProcessorRunnables;
+	Future[] mySQLArchiveRecordToSolrProcessorFutures;
 	ExecutorService fixedThreadPoolExecutorService;
 
-	public ArchiveToMySQLTask() {
-		archiveRecordProcessorRunnables = new ArchiveFileProcessorRunnable[HrwaManager.maxUsableProcessors];
-		archiveRecordProcessorFutures = new Future[HrwaManager.maxUsableProcessors];
+	public MySQLArchiveRecordsToSolrTask() {
+		mySQLArchiveRecordToSolrProcessorRunnables = new MySQLArchiveRecordToSolrProcessorRunnable[HrwaManager.maxUsableProcessors];
+		mySQLArchiveRecordToSolrProcessorFutures = new Future[HrwaManager.maxUsableProcessors];
 		fixedThreadPoolExecutorService = Executors.newFixedThreadPool(HrwaManager.maxUsableProcessors);
 	}
 	
@@ -71,39 +72,24 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		writeTaskHeaderMessageAndSetStartTime();
 		
-		//Scan through warc file directory and generate an alphabetically-sorted list of all warc files to index
-		File[] archiveFilesToProcess = getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(HrwaManager.archiveFileDirPath, validArchiveFileExtensions);
+		initializeMySQLArchiveRecordToSolrProcessorThreads();
 		
-		int numberOfArchiveFilesToProcess = archiveFilesToProcess.length;
+		//Get the highest id in the web archive records table
+		//We'll loop until we hit that number
 		
-		if(numberOfArchiveFilesToProcess < 1) {
-			HrwaManager.writeToLog("No files found for indexing in directory: " + HrwaManager.archiveFileDirPath, true, HrwaManager.LOG_TYPE_ERROR);
-			System.exit(HrwaManager.EXIT_CODE_ERROR);
-		}
+		HrwaManager.writeToLog("Retrieving max(id) from MySQL web archive records table...", true, HrwaManager.LOG_TYPE_STANDARD);
+		long maxWebArchiveRecordMySQLId = MySQLHelper.getMaxIdFromWebArchiveRecordsTable();
+		HrwaManager.writeToLog("Max(id) from MySQL web archive records table: " + maxWebArchiveRecordMySQLId, true, HrwaManager.LOG_TYPE_STANDARD);
 		
-		HrwaManager.writeToLog("Number of archive files to process: " + archiveFilesToProcess.length, true, HrwaManager.LOG_TYPE_STANDARD);
-		
-		//Create necessary MySQL tables
-		try {
-			MySQLHelper.createMimetypeCodesTableIfItDoesNotExist();
-			MySQLHelper.createWebArchiveRecordsTableIfItDoesNotExist();
-			MySQLHelper.createFullyIndexedArchiveFilesTableIfItDoesNotExist();
-		} catch (SQLException e1) {
-			HrwaManager.writeToLog("Error: Could not create one of the required MySQL tables.", true, HrwaManager.LOG_TYPE_ERROR);
-		}
-		
-		initializeArchiveRecordProcessorThreads();
-		
-		//Iterate through and process all archive files
-		for(int i = 0; i < numberOfArchiveFilesToProcess; i++) {
-			HrwaManager.writeToLog(	"Processing archive file " + (i+1) + " of " + numberOfArchiveFilesToProcess + "\n" +
-									"-- Name of archive file: " + archiveFilesToProcess[i].getName() + "\n" +
-									"-- Total number of relevant archive records processed so far (at this exact moment): " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(),
-									true, HrwaManager.LOG_TYPE_STANDARD);
-			
-			processSingleArchiveFile(archiveFilesToProcess[i]);
-			
-			System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
+		for(long currentRecordRetrievalOffset = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.mySQLToSolrRowRetrievalSize) {
+			indexMySQLArchiveRecordsIntoSolr(
+				"SELECT * FROM " +
+				"web_archive_records " +
+				"INNER JOIN sites ON web_archive_records.site_id = sites.id " +
+				"WHERE " +
+				"web_archive_records.site_id IS NOT NULL AND " +
+				"web_archive_records.id > " + currentRecordRetrievalOffset + " AND web_archive_records.id <= " + (currentRecordRetrievalOffset + HrwaManager.mySQLToSolrRowRetrievalSize)
+			);
 		}
 		
 		//CLEANUP TIME
@@ -111,7 +97,7 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		//Wait until all of the runnables are done processing.
 		HrwaManager.writeToLog("Preparing to shut down processors...", true, HrwaManager.LOG_TYPE_STANDARD);
 		HrwaManager.writeToLog("Allowing processors to complete their final tasks...", true, HrwaManager.LOG_TYPE_STANDARD);
-		while( someArchiveRecordProcessorsAreStillRunning() ) {
+		while( someMySQLArchiveRecordToSolrProcessorsAreStillRunning() ) {
 			try {
 				System.out.println("Waiting for final archive file processing to complete before shut down...");
 				Thread.sleep(1000);
@@ -119,9 +105,9 @@ public class ArchiveToMySQLTask extends HrwaTask {
 			catch (InterruptedException e) { e.printStackTrace(); }
 		}
 		
-		HrwaManager.writeToLog("All ArchiveRecordProcessorRunnables have finished processing!  Shutting down all " + HrwaManager.maxUsableProcessors + " processor threads.", true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("All MySQLArchiveRecordToSolrProcessorRunnables have finished processing!  Shutting down all " + HrwaManager.maxUsableProcessors + " processor threads.", true, HrwaManager.LOG_TYPE_STANDARD);
 		
-		shutDownArchiveRecordProcessorThreads();
+		shutDownMySQLArchiveRecordToSolrProcessorThreads();
 		
 		HrwaManager.writeToLog("Total number of archive records processed: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(), true, HrwaManager.LOG_TYPE_STANDARD);
 		
@@ -130,11 +116,11 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	}
 	
 	/**
-	 * Passes the archiveFile to one of the available ArchiveFileProcessorRunnable worker threads.
+	 * Passes the given MySQL selectQuery to one of the available MySQLArchiveRecordToSolrProcessorRunnable worker threads.
 	 * If no worker threads are currently available, this method waits until one is available.
-	 * @param arcRecord
+	 * @param selectQuery
 	 */
-	public void processSingleArchiveFile(File archiveFile) {
+	public void indexMySQLArchiveRecordsIntoSolr(String selectQuery) {
 		
 		boolean lookingForAvailableProcessorThread = true;
 		
@@ -145,8 +131,8 @@ public class ArchiveToMySQLTask extends HrwaTask {
 			
 			if(currentMemoryUsage > HrwaManager.maxMemoryThresholdInBytesForStartingNewThreadProcesses) {
 				
-				//If current memory usage is too high, wait until it's lower before processing another file on another thread
-				System.out.println("Memory usage is currently too high to concurrently start processing an additional file.  Waiting until usage is lower... (Currently: " + HrwaManager.bytesToMegabytes(currentMemoryUsage) + " MB)");
+				//If current memory usage is too high, wait until it's lower before processing more MySQL records on another thread
+				System.out.println("Memory usage is currently too high to concurrently start processing more MySQL records.  Waiting until usage is lower... (Currently: " + HrwaManager.bytesToMegabytes(currentMemoryUsage) + " MB)");
 				try {
 					Thread.sleep(100);
 					//System.out.println("Sleeping for X ms because no threads are available for processing...");
@@ -157,17 +143,17 @@ public class ArchiveToMySQLTask extends HrwaTask {
 				
 				//Otherwise process normally and wait until another thread is available do work
 				
-				for(ArchiveFileProcessorRunnable singleProcessorRunnable : archiveRecordProcessorRunnables) {
-					if( ! singleProcessorRunnable.isProcessingAnArchiveFile() ) {
+				for(MySQLArchiveRecordToSolrProcessorRunnable singleProcessorRunnable : mySQLArchiveRecordToSolrProcessorRunnables) {
+					if( ! singleProcessorRunnable.isProcessingAMySQLArchiveRecordQuery() ) {
 						lookingForAvailableProcessorThread = false;
 						
-						singleProcessorRunnable.queueArchiveFileForProcessing(archiveFile);
+						singleProcessorRunnable.queueMySQLArchiveRecordQueryForProcessing(selectQuery);
 						// Uncomment the line below to perform single-threaded
 						// debugging/processing (by directly calling the
-						// processArchiveFile() method). If you do uncomment this
+						// processMySQLArchiveRecordQueryAndSendToSolr() method). If you do uncomment this
 						// line, then you should comment out the line above (because
 						// you no longer want to queue archive file processing).
-						//singleProcessorRunnable.processArchiveFile(archiveFile);
+						//singleProcessorRunnable.processMySQLArchiveRecordQueryAndSendToSolr(selectQuery);
 						break;
 					}
 				}
@@ -187,8 +173,8 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		long total = 0;
 		
-		for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
-			total += singleProcessor.getNumRelevantArchiveRecordsProcessed();
+		for(MySQLArchiveRecordToSolrProcessorRunnable singleProcessor : mySQLArchiveRecordToSolrProcessorRunnables) {
+			total += singleProcessor.getNumArchiveRecordsIndexedIntoSolr();
 		}
 		
 		return total;
@@ -198,36 +184,36 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	 * Returns true if at least one of the processors is still running.
 	 * @return
 	 */
-	public boolean someArchiveRecordProcessorsAreStillRunning() {
-		for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
-			if(singleProcessor.isProcessingAnArchiveFile()) {
-				System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running. --> " + singleProcessor.getNumRelevantArchiveRecordsProcessed());
+	public boolean someMySQLArchiveRecordToSolrProcessorsAreStillRunning() {
+		for(MySQLArchiveRecordToSolrProcessorRunnable singleProcessor : mySQLArchiveRecordToSolrProcessorRunnables) {
+			if(singleProcessor.isProcessingAMySQLArchiveRecordQuery()) {
+				System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running. --> " + singleProcessor.getNumArchiveRecordsIndexedIntoSolr());
 				return true;
 			}
 		}
 		return false;
 	}
 	
-	public void initializeArchiveRecordProcessorThreads() {
+	public void initializeMySQLArchiveRecordToSolrProcessorThreads() {
 		
 		HrwaManager.writeToLog("Starting processor threads...", true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		for(int i = 0; i < HrwaManager.maxUsableProcessors; i++) {
 			//Create thread
-			archiveRecordProcessorRunnables[i] = new ArchiveFileProcessorRunnable(i);
+			mySQLArchiveRecordToSolrProcessorRunnables[i] = new MySQLArchiveRecordToSolrProcessorRunnable(i);
 			
 			//And submit it to the fixedThreadPoolExecutorService so that it will run.
 			//The submit method will return a Future that we can use to check the runnable's
 			//status (isDone()) or cancel the task (cancel()).
-			archiveRecordProcessorFutures[i] = fixedThreadPoolExecutorService.submit(archiveRecordProcessorRunnables[i]);
+			mySQLArchiveRecordToSolrProcessorFutures[i] = fixedThreadPoolExecutorService.submit(mySQLArchiveRecordToSolrProcessorRunnables[i]);
 		}
 		
 		HrwaManager.writeToLog("All " + HrwaManager.maxUsableProcessors + " processors started!", true, HrwaManager.LOG_TYPE_STANDARD);
 	}
 	
-	public void shutDownArchiveRecordProcessorThreads() {
+	public void shutDownMySQLArchiveRecordToSolrProcessorThreads() {
 		
-		for(ArchiveFileProcessorRunnable singleRunnable : archiveRecordProcessorRunnables) {
+		for(MySQLArchiveRecordToSolrProcessorRunnable singleRunnable : mySQLArchiveRecordToSolrProcessorRunnables) {
 			//Shut down each of the runnables
 			singleRunnable.stop();
 			System.out.println("STOPPING RUNNABLE!");
