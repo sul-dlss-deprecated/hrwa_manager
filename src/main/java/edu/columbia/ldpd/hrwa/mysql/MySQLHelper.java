@@ -75,7 +75,6 @@ public class MySQLHelper {
 			"  `blob_path` varchar(500) NOT NULL COMMENT 'Filesystem path to the blob data associated with this record.  Header info is the blob_path + .header'," +
 			"  `mimetype_from_header` varchar(255) DEFAULT NULL COMMENT 'Mimetype defined in the archive file header.'," +
 			"  `mimetype_detected` varchar(100) DEFAULT NULL COMMENT 'Mimetype detected by our archive_to_mysql indexer, using Apache Tika.  NULL if mimetype could not be detected.'," +
-			"  `mimetype_code` varchar(100) DEFAULT NULL COMMENT 'Custom, human-made mimetype code that might (1) place several mimetypes into a logical group (i.e. Microsoft Excel Document) or (2) translate long, unwieldy mimetypes into shorter-named, cleaner-looking ones.'," +
 			"  `reader_identifier` varchar(255) NOT NULL COMMENT 'Full filesystem path to the warc/arc file associated with this record (at the time when this record was indexed).'," +
 			"  `record_identifier` varchar(2115) NOT NULL COMMENT 'Unique identifier for this record.  Of the format: record_date/url'," +
 			"  `archived_url` varchar(2200) DEFAULT NULL COMMENT 'Wayback url to this archive record.  Note that this url includes the record_identifier.'," +
@@ -92,7 +91,6 @@ public class MySQLHelper {
 			"  KEY `status_code` (`status_code`)," +
 			"  KEY `hoststring` (`hoststring`)," +
 			"  KEY `site_id` (`site_id`)," +
-			"  KEY `mimetype_code` (`mimetype_code`)," +
 			"  KEY `record_date` (`record_date`)," +
 			"  KEY `linked_via_related_host` (`linked_via_related_host`)," +
 			"  KEY `hrwa_manager_todo` (`hrwa_manager_todo`)," +

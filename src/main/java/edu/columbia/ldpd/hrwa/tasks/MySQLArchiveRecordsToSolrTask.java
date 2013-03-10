@@ -83,12 +83,19 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 		
 		for(long currentRecordRetrievalOffset = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.mySQLToSolrRowRetrievalSize) {
 			indexMySQLArchiveRecordsIntoSolr(
-				"SELECT * FROM " +
-				"web_archive_records " +
-				"INNER JOIN sites ON web_archive_records.site_id = sites.id " +
-				"WHERE " +
-				"web_archive_records.site_id IS NOT NULL AND " +
-				"web_archive_records.id > " + currentRecordRetrievalOffset + " AND web_archive_records.id <= " + (currentRecordRetrievalOffset + HrwaManager.mySQLToSolrRowRetrievalSize)
+				"SELECT " +
+				"archived_url, record_date, digest, archive_file, length, url, " +
+				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected, " +
+				"mimetype_code, reader_identifier, record_identifier, status_code, " +
+				"bib_key, creator_name, " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".hoststring, organization_type, organization_based_in, " +
+				"geographic_focus, language " +
+				" FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + 
+				" INNER JOIN " + HrwaManager.MYSQL_SITES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id = " + HrwaManager.MYSQL_SITES_TABLE_NAME + ".id " +
+				" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
+				" WHERE" +
+				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id IS NOT NULL" +
+				" AND" +
+				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id > " + currentRecordRetrievalOffset + " AND web_archive_records.id <= " + (currentRecordRetrievalOffset + HrwaManager.mySQLToSolrRowRetrievalSize)
 			);
 		}
 		

@@ -107,21 +107,21 @@
    error.  Source: http://stackoverflow.com/questions/9745039/solr-missing-required-field-error-when-the-field-is-not-missing.
         Also, indexed must be true to be able to sort by a field.
    -->
-   <field name="archivedUrl"              type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="dateOfCaptureYYYY"        type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="dateOfCaptureYYYYMM"      type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="dateOfCaptureYYYYMMDD"    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="digest"                   type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="filename"                 type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="length"                   type="long"         indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="originalUrl"              type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="mimetype"                 type="text_general" indexed="true"  stored="true"  required="false" multiValued="false" />
-   <field name="mimetypeCode"             type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="readerIdentifier"         type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="recordDate"               type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="recordIdentifier"         type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
-   <field name="statusCode"               type="string"       indexed="true"  stored="true"  required="false" multiValued="false" />
-   <field name="contents"                 type="text_en"      indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="archived_url"              type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="date_of_capture_YYYY"      type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="date_of_capture_YYYYMM"    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="date_of_capture_YYYYMMDD"  type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="digest"                    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="filename"                  type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="length"                    type="long"         indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="original_url"              type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="mimetype"                  type="text_general" indexed="true"  stored="true"  required="false" multiValued="false" />
+   <field name="mimetype_code"             type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="reader_identifier"         type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="record_date"               type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="record_identifier"         type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="status_code"               type="string"       indexed="true"  stored="true"  required="false" multiValued="false" />
+   <field name="contents"                  type="text_en"      indexed="true"  stored="true"  required="true"  multiValued="false" />
 
    <!-- Title is part of data extracted by Solr Cell.  See title field grouped with other Solr Cell fields later in this schema file (around 40-50 lines below this line). -->
    <!-- <field name="title"                    type="text_en"      indexed="true"  stored="true"  required="false" multiValued="false" /> -->
@@ -255,7 +255,7 @@
  <!-- Field to use to determine and enforce document uniqueness.
       Unless this field is marked with required="false", it will be a required field
    -->
- <uniqueKey>recordIdentifier</uniqueKey>
+ <uniqueKey>record_identifier</uniqueKey>
 
  <!-- DEPRECATED: The defaultSearchField is consulted by various query parsers when
   parsing a query string that isn't explicit about the field.  Machine (non-user)
@@ -276,7 +276,7 @@
         is added to the index.  It's used either to index the same field differently,
         or to add multiple fields to the same field for easier/faster searching.  -->
 
-   <copyField source="recordIdentifier" dest="id"/>
+   <copyField source="record_identifier" dest="id"/>
 
    <copyField source="title"    dest="text"/>
    <copyField source="contents" dest="text"/>

@@ -84,7 +84,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 	
 	public void processMySQLArchiveRecordQueryAndSendToSolr(String archiveRecordSelectQuery) {
 		
-		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Start process of results from MySQL query" + archiveRecordSelectQuery, true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Start process of results from MySQL query: " + archiveRecordSelectQuery, true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		try {
 			Connection conn = MySQLHelper.getNewDBConnection(true);
@@ -99,7 +99,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 	        conn.close();
         
 		} catch (SQLException e) {
-			HrwaManager.writeToLog("An error occurred while attempting to retrieve the max id from the web archive records table.", true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog("An error occurred while attempting to retrieve mysql archive record data from the web archive recods table. Query: " + archiveRecordSelectQuery, true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
 			System.exit(0);
 		}
@@ -154,6 +154,34 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 		//TODO: This method should actually index stuff into Solr!
 		
 		while (resultSet.next()) {
+			
+			/*
+			// Required Solr Fields
+			archivedUrl
+			dateOfCaptureYYYY
+			dateOfCaptureYYYYMM
+			dateOfCaptureYYYYMMDD
+			digest
+			filename
+			length
+			originalUrl
+			mimetype
+			mimetypeCode
+			readerIdentifier
+			recordDate
+			recordIdentifier
+			statusCode
+			contents
+			bib_key
+			creator_name
+			domain
+			organization_type
+			organization_based_in
+			geographic_focus
+			language
+			website_original_urls
+			*/
+			
 			numArchiveRecordsIndexedIntoSolr++;
 		}
 	}
