@@ -59,7 +59,7 @@ public class HrwaManager {
 	public static String		archiveItUsername		= ""; //default, should be overridden
 	public static String		archiveItPassword		= ""; //default, should be overridden
 	public static int			archiveItCollectionId 	= -1; //default, should be overridden
-	public static String		mysqlURL			= ""; //default, should be overridden
+	public static String		mysqlUrl			= ""; //default, should be overridden
 	public static String		mysqlDatabase		= ""; //default, should be overridden
 	public static String		mysqlUsername		= ""; //default, should be overridden
 	public static String		mysqlPassword		= ""; //default, should be overridden
@@ -73,6 +73,9 @@ public class HrwaManager {
 	
 	public static int				mysqlCommitBatchSize							= 1000; //default, can be overridden
 	public static int				mySQLToSolrRowRetrievalSize						= 1000; //default, can be overridden
+	
+	public static String			asfSolrUrl										= ""; //default, should be overridden
+	public static int				asfSolrAddBatchSize								= 1000; //default, can be overridden
 	
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
 	public static long maxMemoryThresholdInBytesForStartingNewThreadProcesses = (int)(maxAvailableMemoryInBytes*.75); //default, might be overridden
@@ -380,7 +383,7 @@ public class HrwaManager {
 	        }
 	        
 	        if ( cmdLine.hasOption( "mysqlurl") ) {
-	        	mysqlURL = cmdLine.getOptionValue( "mysqlurl" );
+	        	mysqlUrl = cmdLine.getOptionValue( "mysqlurl" );
 	        	System.out.println("A MySQL URL has been supplied.");
 	        }
 	        
@@ -415,6 +418,21 @@ public class HrwaManager {
 	        	
 	        	if(HrwaManager.mySQLToSolrRowRetrievalSize < 1) {
 	    			System.out.println("Error: The --mySQLToSolrRowRetrievalSize must be > 1. Please change the command line argument value that you supplied.");
+	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
+	    		}
+	        }
+	        
+	        if ( cmdLine.hasOption( "asfsolrurl") ) {
+	        	asfSolrUrl = cmdLine.getOptionValue( "asfsolrurl" );
+	        	System.out.println("An ASF Solr URL has been supplied.");
+	        }
+	        
+	        if ( cmdLine.hasOption( "asfsolraddbatchsize") ) {
+	        	asfSolrAddBatchSize = Integer.parseInt(cmdLine.getOptionValue( "asfsolraddbatchsize" ));
+	        	System.out.println("An ASF Solr add batch size has been supplied.");
+	        	
+	        	if(HrwaManager.asfSolrAddBatchSize < 1) {
+	    			System.out.println("Error: The --asfsolraddbatchsize must be > 1. Please change the command line argument value that you supplied.");
 	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
 	    		}
 	        }
@@ -603,6 +621,20 @@ public class HrwaManager {
                 .hasArg()
                 .withDescription( "MySQL to solr row retrieval size (e.g. When indexing to Solr, select records from MySQL in groups of 1000)." )
                 .create( "mysqltosolrrowretrievalsize" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "string" )
+                .hasArg()
+                .withDescription( "ASF Solr URL to connect to." )
+                .create( "asfsolrurl" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "integer" )
+                .hasArg()
+                .withDescription( "ASF Solr add batch size (e.g. When indexing records into to Solr, add new documents in batches of 1000)." )
+                .create( "asfsolraddbatchsize" )
         );
         
     }

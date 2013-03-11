@@ -11,12 +11,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.common.SolrInputDocument;
 import org.archive.io.ArchiveReader;
 import org.archive.io.ArchiveReaderFactory;
 import org.archive.io.arc.ARCRecord;
@@ -28,6 +32,7 @@ import com.googlecode.mp4parser.h264.model.HRDParameters;
 import edu.columbia.ldpd.hrwa.HrwaManager;
 import edu.columbia.ldpd.hrwa.MimetypeDetector;
 import edu.columbia.ldpd.hrwa.mysql.MySQLHelper;
+import edu.columbia.ldpd.hrwa.solr.ASFSolrIndexer;
 import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
 
@@ -153,6 +158,8 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 		
 		//TODO: This method should actually index stuff into Solr!
 		
+		Collection<SolrInputDocument> docBatchToIndex = new ArrayList<SolrInputDocument>();
+		
 		while (resultSet.next()) {
 			
 			/*
@@ -182,7 +189,23 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 			website_original_urls
 			*/
 			
+			//docBatchToIndex.add()
 			numArchiveRecordsIndexedIntoSolr++;
+			
+			//Every x number of records, print a line in the memory log to keep track of memory consumption over time
+			if(numArchiveRecordsIndexedIntoSolr % 1500 == 0) {
+				HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
+			}
+		}
+		
+		try {
+			ASFSolrIndexer.commitBatchToSolr(docBatchToIndex);
+		} catch (SolrServerException e) {
+			HrwaManager.writeToLog("Error: SolrServerException encountered while attempting to commit a batch of documents to the ASF Solr server at: " + HrwaManager.asfSolrUrl, true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+		} catch (IOException e) {
+			HrwaManager.writeToLog("Error: IOException encountered while attempting to commit a batch of documents to the ASF Solr server at: " + HrwaManager.asfSolrUrl, true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
 		}
 	}
 	

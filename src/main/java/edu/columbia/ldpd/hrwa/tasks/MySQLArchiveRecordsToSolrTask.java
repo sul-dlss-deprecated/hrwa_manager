@@ -52,6 +52,7 @@ import edu.columbia.ldpd.hrwa.HrwaManager;
 import edu.columbia.ldpd.hrwa.mysql.MySQLHelper;
 import edu.columbia.ldpd.hrwa.processorrunnables.ArchiveFileProcessorRunnable;
 import edu.columbia.ldpd.hrwa.processorrunnables.MySQLArchiveRecordToSolrProcessorRunnable;
+import edu.columbia.ldpd.hrwa.solr.ASFSolrIndexer;
 
 public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 	
@@ -71,6 +72,8 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 	public void runTask() {
 		
 		writeTaskHeaderMessageAndSetStartTime();
+		
+		ASFSolrIndexer.initSingleSolrServerObject();
 		
 		initializeMySQLArchiveRecordToSolrProcessorThreads();
 		
@@ -115,6 +118,8 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 		HrwaManager.writeToLog("All MySQLArchiveRecordToSolrProcessorRunnables have finished processing!  Shutting down all " + HrwaManager.maxUsableProcessors + " processor threads.", true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		shutDownMySQLArchiveRecordToSolrProcessorThreads();
+		
+		ASFSolrIndexer.shutdownSingleSolrServerObject();
 		
 		HrwaManager.writeToLog("Total number of archive records processed: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(), true, HrwaManager.LOG_TYPE_STANDARD);
 		

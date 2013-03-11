@@ -40,7 +40,7 @@ public class MySQLHelper {
 
 		//Step 2: Establish connection
 		
-		String url = "jdbc:mysql://" + HrwaManager.mysqlURL + "/" + HrwaManager.mysqlDatabase;
+		String url = "jdbc:mysql://" + HrwaManager.mysqlUrl + "/" + HrwaManager.mysqlDatabase;
 		try {
 			newConn = DriverManager.getConnection(url, HrwaManager.mysqlUsername, HrwaManager.mysqlPassword);
 		} catch (SQLException ex) {
