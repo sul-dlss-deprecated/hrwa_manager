@@ -87,7 +87,7 @@ public class HrwaManager {
 	private static boolean runDownloadArchiveFilesTask		= false;
 	private static boolean runSitesToSolrAndMySQLTask		= false;
 	private static boolean runArchiveToMySQLTask			= false;
-	private static boolean runMySQLArchiveRecordsToSolrTask = true;
+	private static boolean runMySQLArchiveRecordsToSolrTask = false;
 	
 	private static boolean runTalkToClioTestTask			= false;
 	private static boolean runArchiveFileReadTestTask		= false;

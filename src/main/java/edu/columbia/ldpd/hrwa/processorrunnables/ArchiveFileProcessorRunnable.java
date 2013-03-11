@@ -245,6 +245,28 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	
 		ARCRecordMetaData arcRecordMetaData = arcRecord.getMetaData();
 		
+		// If there is no digest, then we assume we're reading an
+        // ARCRecord and not a WARCRecord.  In that case, we close the
+        // record, which updates the digest string.  Then we tweak the
+        // digest string so we have the same for for both ARC and WARC
+        // records.
+        if ( arcRecordMetaData.getDigest() == null ) {
+        	try {
+        		arcRecord.close();
+			} catch (IOException e) {
+				HrwaManager.writeToLog("Error: Could not close current record while attempting to assign digest. Record from archive file: " + parentArchiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
+			}
+
+            // ARC and WARC records produce two slightly different
+        	// digest formats.  WARC record digests have the algorithm
+        	// name as a prefix, such as
+            // "sha1:PD3SS4WWZVFWTDC63RU2MWX7BVC2Y2VA" but
+            // ArcRecord.getDigestStr() does not.  Since we want the
+            // formats to match, we prepend the "sha1:" prefix to ARC
+            // record digest.
+        	arcRecordMetaData.setDigest( "sha1:" + arcRecord.getDigestStr() );
+        }
+		
 		//Step 1: Create .blob file and .blob.header file
 		File newlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
 		
