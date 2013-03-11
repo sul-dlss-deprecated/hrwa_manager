@@ -1,6 +1,7 @@
 package edu.columbia.ldpd.hrwa.processorrunnables;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -394,7 +395,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
         blobFile.getParentFile().mkdirs();
 
         
-        // Write blob to file using method below in order to use less memory. (I need all the memory I can get!) 
+        // Write blob to file using method below in order to use less memory 
         try {
             FileOutputStream blobOutputStream = new FileOutputStream(blobFile);
             byte [] buffer = checkout();
