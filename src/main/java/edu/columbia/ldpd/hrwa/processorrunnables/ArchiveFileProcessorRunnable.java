@@ -245,6 +245,16 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	
 		ARCRecordMetaData arcRecordMetaData = arcRecord.getMetaData();
 		
+		//Step 1: Create .blob file and .blob.header file
+		File newlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
+		
+		//Step 2: Run mimetype detection on blob file - Mimetype detection with Tika 1.2 is thread-safe.
+		String detectedMimetype = mimetypeDetector.getMimetype(newlyCreatedBlobFile);
+		//System.out.println("Detected mimetype: " + detectedMimetype);
+		
+		//Step 3: If this archive record has no digest, create a digest.
+		//IMPORTANT NOTE: DO NOT close the record until after you've already extracted blob/header info from it.
+		
 		// If there is no digest, then we assume we're reading an
         // ARCRecord and not a WARCRecord.  In that case, we close the
         // record, which updates the digest string.  Then we tweak the
@@ -266,13 +276,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
             // record digest.
         	arcRecordMetaData.setDigest( "sha1:" + arcRecord.getDigestStr() );
         }
-		
-		//Step 1: Create .blob file and .blob.header file
-		File newlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
-		
-		//Step 2: Run mimetype detection on blob file - Mimetype detection with Tika 1.2 is thread-safe.
-		String detectedMimetype = mimetypeDetector.getMimetype(newlyCreatedBlobFile);
-		//System.out.println("Detected mimetype: " + detectedMimetype);
 		
 		//Step 3: Insert all info into MySQL
 		try {
