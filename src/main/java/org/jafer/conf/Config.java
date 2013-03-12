@@ -23,7 +23,6 @@ import org.jafer.exception.JaferException;
 import org.jafer.util.xml.DOMFactory;
 
 import java.io.InputStream;
-import java.net.URL;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
@@ -52,23 +51,23 @@ import org.w3c.dom.NodeList;
   public static final String SERVER_ENCODE_FILE     = "org/jafer/xsl/server/server-encode.xsl";
 
   private static Document recordTransformDocument;
-  private static Hashtable recordName;
-  private static Hashtable recordSyntax;
-  private static Hashtable recordSerializer;
-  private static Hashtable recordSerializerTargetSchema;
-  private static Hashtable recordTransformations;
+  private static Hashtable<String,String> recordName;
+  private static Hashtable<String,String> recordSyntax;
+  private static Hashtable<String,String> recordSerializer;
+  private static Hashtable<String,String> recordSerializerTargetSchema;
+  private static Hashtable<String, Hashtable<String, Hashtable<String, Node>>> recordTransformations;
     /** @todo SRW/XMLRecord hack: */
-  private static Vector targetSchemaNames;
-  private static Vector sourceSchemaNames;
-  private static Vector stylesheetNames;
+  private static Vector<String> targetSchemaNames;
+  private static Vector<String> sourceSchemaNames;
+  private static Vector<String> stylesheetNames;
 
-  private static Hashtable attributeSets;
-  private static Hashtable attributeTypeName;
-  private static Hashtable attributeTypeValue;
-  private static Hashtable searchProfileSyntax;
-  private static Hashtable searchProfileName;
-  private static Hashtable bib1DiagMessage;
-  private static Hashtable bib1DiagAddInfo;
+  private static Hashtable<String,Hashtable<String, Hashtable<String,String>>> attributeSets;
+  private static Hashtable<String,String> attributeTypeName;
+  private static Hashtable<String,String> attributeTypeValue;
+  private static Hashtable<String,String> searchProfileSyntax;
+  private static Hashtable<String,String> searchProfileName;
+  private static Hashtable<String,String> bib1DiagMessage;
+  private static Hashtable<String,String> bib1DiagAddInfo;
 
   private static String attributeSetName;
   private static String attributeSetSyntax;
@@ -109,15 +108,15 @@ import org.w3c.dom.NodeList;
 //       <transform sourceSchema="http://www.loc.gov/MARC21/slim" targetSchema="http://purl.org/dc/elements/1.1/">org/jafer/xsl/MARC21slim2DC.xsl</transform>
 //  </transform>
 
-    recordName = new Hashtable();
-    recordSyntax = new Hashtable();
-    recordSerializer = new Hashtable();
-    recordSerializerTargetSchema = new Hashtable();
-    recordTransformations = new Hashtable();
+    recordName = new Hashtable<String, String>();
+    recordSyntax = new Hashtable<String, String>();
+    recordSerializer = new Hashtable<String, String>();
+    recordSerializerTargetSchema = new Hashtable<String, String>();
+    recordTransformations = new Hashtable<String, Hashtable<String, Hashtable<String, Node>>>();
     /** @todo SRW/XMLRecord hack: *//////
-    targetSchemaNames = new Vector();
-    sourceSchemaNames = new Vector();
-    stylesheetNames = new Vector();
+    targetSchemaNames = new Vector<String>();
+    sourceSchemaNames = new Vector<String>();
+    stylesheetNames = new Vector<String>();
 /////////////////////////////////////////
 
     Document recordDescriptorDocument = config.parseDocument(recordDescriptorFile);
@@ -125,7 +124,7 @@ import org.w3c.dom.NodeList;
     Node transformRoot = recordTransformDocument.createElement("transformRoot");
     recordTransformDocument.appendChild(transformRoot);
 
-    Hashtable transformNodes;
+    Hashtable<String, Hashtable<String, Node>> transformNodes;
     String syntax, oidName, serializer, schema, priority;
     Node oidNode, serializerNode, transformNode;
     NodeList oidNodes = selectNodeList(recordDescriptorDocument, "recordDescriptor/oid");
@@ -144,13 +143,13 @@ import org.w3c.dom.NodeList;
             ((Element)transformNode).setAttribute("priority", priority);
             ((Element)transformNode).setAttribute("syntax", syntax);
             transformRoot.appendChild(transformNode);
-            transformNodes = new Hashtable();
-            transformNodes.put("fromSerializer", new Hashtable());
-            transformNodes.put("toSerializer", new Hashtable());
-            ((Hashtable)transformNodes.get("fromSerializer")).put(schema, transformNode);
-            ((Hashtable)transformNodes.get("toSerializer")).put(schema, transformNode);
-            buildTransformNodes(oidNode, transformNode, new Vector(), new Hashtable(), transformNodes, schema, true);
-            buildTransformNodes(oidNode, transformNode, new Vector(), new Hashtable(), transformNodes, schema, false);
+            transformNodes = new Hashtable<String, Hashtable<String, Node>>();
+            transformNodes.put("fromSerializer", new Hashtable<String, Node>());
+            transformNodes.put("toSerializer", new Hashtable<String, Node>());
+            transformNodes.get("fromSerializer").put(schema, transformNode);
+            transformNodes.get("toSerializer").put(schema, transformNode);
+            buildTransformNodes(oidNode, transformNode, new Vector<String>(), new Hashtable<String, Integer>(), transformNodes, schema, true);
+            buildTransformNodes(oidNode, transformNode, new Vector<String>(), new Hashtable<String, Integer>(), transformNodes, schema, false);
             recordTransformations.put(syntax, transformNodes);
             recordSerializerTargetSchema.put(syntax, schema);
             recordSerializer.put(syntax, serializer);
@@ -160,19 +159,22 @@ import org.w3c.dom.NodeList;
     }
   }
 
-  private static void buildTransformNodes(Node oidNode, Node transformNode, Vector path, Hashtable schemaDepth, Hashtable schemaNodes, String fromSchema, boolean fromSerializer) throws JaferException {
+  private static void buildTransformNodes(
+		  Node oidNode, Node transformNode, Vector<String> path,
+		  Hashtable<String, Integer> schemaDepth, Hashtable<String, Hashtable<String, Node>> schemaNodes,
+		  String fromSchema, boolean fromSerializer) throws JaferException {
 
     if (path.contains(fromSchema)) return;
-    path = new Vector(path);
+    path = new Vector<String>(path);
     path.add(fromSchema);
 
     NodeList nodes;
-    Hashtable transformNodes;
+    Hashtable<String, Node> transformNodes;
     if (fromSerializer) {
-      transformNodes = (Hashtable)schemaNodes.get("fromSerializer");
+      transformNodes = schemaNodes.get("fromSerializer");
       nodes = selectNodeList(oidNode, "transform[@sourceSchema='" + fromSchema + "']");
     } else {
-      transformNodes = (Hashtable)schemaNodes.get("toSerializer");
+      transformNodes = schemaNodes.get("toSerializer");
       nodes = selectNodeList(oidNode, "transform[@targetSchema='" + fromSchema + "']");
     }
 
@@ -208,10 +210,8 @@ import org.w3c.dom.NodeList;
   private static void buildSchemaTransforms(Node oidNode) throws JaferException {
     /** @todo No priorities, just a list of possible transforms... */
     NodeList nodes = selectNodeList(oidNode, "./*");
-    NodeList atts;
-    String stylesheetName, targetSchemaName, sourceSchemaName;
+    String stylesheetName;
     Element el;
-    int index;
 
     for (int i=0; i <nodes.getLength(); i++) {
       el = (Element)nodes.item(i);
@@ -309,16 +309,16 @@ import org.w3c.dom.NodeList;
 
     int currentPriority = 0, priority = Integer.MAX_VALUE;
     String currentSyntax = null, syntax = null;
-    Hashtable transformsNodes;
+    Hashtable<String, Node> transformsNodes;
     Node transformNode;
 
-    Enumeration syntaxKeys = recordTransformations.keys();
+    Enumeration<String> syntaxKeys = recordTransformations.keys();
     while (syntaxKeys.hasMoreElements()) {
         currentSyntax = (String)syntaxKeys.nextElement();
-        transformsNodes = (Hashtable)((Hashtable)recordTransformations.get(currentSyntax)).get("fromSerializer");
+        transformsNodes = recordTransformations.get(currentSyntax).get("fromSerializer");
         transformNode = (Node)transformsNodes.get(schema);
         if (transformNode != null) {
-          currentPriority = getTransforms(true, transformNode, new Vector());
+          currentPriority = getTransforms(true, transformNode, new Vector<String>());
           if (currentPriority <= priority) {
               priority = currentPriority;
               syntax = currentSyntax;
@@ -340,29 +340,29 @@ import org.w3c.dom.NodeList;
 //      return getTransforms(true, syntax, schema);
 //  }
 
-  public static Vector getTransforms(boolean fromSerializer, String syntax, String schema) throws JaferException {
+  public static Vector<String> getTransforms(boolean fromSerializer, String syntax, String schema) throws JaferException {
 
 
-    Hashtable nodes;
-    Hashtable transformNodes = (Hashtable)recordTransformations.get(syntax);
-    if (fromSerializer && ((Hashtable)transformNodes.get("fromSerializer")).containsKey(schema)) {
-      nodes = (Hashtable)transformNodes.get("fromSerializer");
-    } else if ((!fromSerializer) && ((Hashtable)transformNodes.get("toSerializer")).containsKey(schema)) {
-      nodes = (Hashtable)transformNodes.get("toSerializer");
+    Hashtable<String, Node> nodes;
+    Hashtable<String, Hashtable<String, Node>> transformNodes = recordTransformations.get(syntax);
+    if (fromSerializer && transformNodes.get("fromSerializer").containsKey(schema)) {
+      nodes = transformNodes.get("fromSerializer");
+    } else if ((!fromSerializer) && transformNodes.get("toSerializer").containsKey(schema)) {
+      nodes = transformNodes.get("toSerializer");
     } else
       throw new JaferException("Schema " + schema + " for recordSyntax " + syntax + " not found in recordDescriptor file " + RECORD_DESCRIPTOR_FILE);
 
     Node transformNode = (Node)nodes.get(schema);
-    Vector transforms = new Vector();
+    Vector<String> transforms = new Vector<String>();
     getTransforms(fromSerializer, transformNode, transforms);
     return transforms;
   }
 
-  public static Vector getTransforms(String recordSchema, String requestedRecordSchema) throws JaferException {
+  public static Vector<String> getTransforms(String recordSchema, String requestedRecordSchema) throws JaferException {
 
     /** order of transforms in recordDescriptor.xml dictates priority. */
     /** @todo optimize by caching Vectors of all possible paths. */
-    Vector transforms;
+    Vector<String> transforms;
     String currentTargetSchemaName, currentSourceSchemaName;
     String firstmatch = null, stylesheetName = null;
 
@@ -372,7 +372,7 @@ import org.w3c.dom.NodeList;
         if (targetSchemaNames.get(i).equals(currentTargetSchemaName)) {
           currentSourceSchemaName = (String)sourceSchemaNames.get(i);
           if (currentSourceSchemaName.equals(recordSchema)) {
-            transforms = new Vector();
+            transforms = new Vector<String>();
             transforms.add(stylesheetNames.get(i));
             return transforms;
           }
@@ -391,7 +391,7 @@ import org.w3c.dom.NodeList;
     return transforms;
   }
 
-  private static int getTransforms(boolean fromSerializer, Node transformNode, Vector transforms) throws JaferException {
+  private static int getTransforms(boolean fromSerializer, Node transformNode, Vector<String> transforms) throws JaferException {
 
     int priority;
 
@@ -412,11 +412,11 @@ import org.w3c.dom.NodeList;
   }
 
 /////////////////////////
-  private static Hashtable schemaMappings;
+  private static Hashtable<String, String> schemaMappings;
 
   private static void buildSRWSchemaMappings() {
 
-    schemaMappings = new Hashtable();
+    schemaMappings = new Hashtable<String, String>();
     NodeList list = null;
     try {
       Document doc = config.parseDocument("org/jafer/conf/SRWSchemaMappings.xml");
@@ -443,11 +443,11 @@ import org.w3c.dom.NodeList;
   }
 
   /////////////////////////
-    private static Hashtable bib1ToCQLMappings;
+    private static Hashtable<String,String> bib1ToCQLMappings;
 
     private static void buildBib1ToCQLMappings() {
 
-      bib1ToCQLMappings = new Hashtable();
+      bib1ToCQLMappings = new Hashtable<String,String>();
       NodeList list = null;
       try {
         Document doc = config.parseDocument("org/jafer/conf/cqlContextSets.xml");
@@ -496,9 +496,9 @@ import org.w3c.dom.NodeList;
 
     Document attributeDocument = config.parseDocument(bib1AttributesFile);
 
-    attributeSets = new Hashtable();
-    attributeTypeName = new Hashtable();
-    attributeTypeValue = new Hashtable();
+    attributeSets = new Hashtable<String,Hashtable<String, Hashtable<String,String>>>();
+    attributeTypeName = new Hashtable<String,String>();
+    attributeTypeValue = new Hashtable<String,String>();
 
     String name, value;
     Node node;
@@ -510,7 +510,7 @@ import org.w3c.dom.NodeList;
     for (int i = 0; i < attributeSetNodes.getLength(); i++) {
       node = attributeSetNodes.item(i);
       name = getValue(selectSingleNode(node, "@name"));
-      Hashtable attributeSet = new Hashtable();
+      Hashtable<String, Hashtable<String,String>> attributeSet = new Hashtable<String, Hashtable<String,String>>();
       attributeSets.put(name, attributeSet);
 
       if (Boolean.valueOf(getValue(selectSingleNode(node, "@default"))).booleanValue()) {
@@ -524,7 +524,7 @@ import org.w3c.dom.NodeList;
         node = attributeTypeNodes.item(j);
         name = getValue(selectSingleNode(node, "@name"));
         value = getValue(selectSingleNode(node, "@value"));
-        Hashtable attributes = new Hashtable();
+        Hashtable<String, String> attributes = new Hashtable<String, String>();
         attributeSet.put(name, attributes);
 
         if (defaultAttributeSet) {
@@ -556,8 +556,8 @@ import org.w3c.dom.NodeList;
   public static int getAttributeValue(String attributeSetName, String attributeTypeName, String attributeName) throws JaferException {
 /** @todo throw exception lookup fails */
     int value;
-    Hashtable attributeSet = (Hashtable)attributeSets.get(attributeSetName);
-    Hashtable attributes = (Hashtable)attributeSet.get(attributeTypeName);
+    Hashtable<String, Hashtable<String, String>> attributeSet = attributeSets.get(attributeSetName);
+    Hashtable<String, String> attributes = attributeSet.get(attributeTypeName);
     try {
       value = Integer.parseInt((String)attributes.get(attributeName));
     }
@@ -620,8 +620,8 @@ import org.w3c.dom.NodeList;
   private static void buildBib1DiagnosticConfig(String bib1DiagnosticsFile) throws JaferException {
 
     Document diagnosticDocument = config.parseDocument(bib1DiagnosticsFile);
-    bib1DiagMessage = new Hashtable();
-    bib1DiagAddInfo = new Hashtable();
+    bib1DiagMessage = new Hashtable<String, String>();
+    bib1DiagAddInfo = new Hashtable<String, String>();
 
     String message, value, addInfo;
     Node node;
@@ -643,8 +643,8 @@ import org.w3c.dom.NodeList;
   private static void buildSearchProfileConfig(String searchProfilesFile) throws JaferException {
 
     Document profileDocument = config.parseDocument(searchProfilesFile);
-    searchProfileSyntax = new Hashtable();
-    searchProfileName = new Hashtable();
+    searchProfileSyntax = new Hashtable<String, String>();
+    searchProfileName = new Hashtable<String, String>();
 
     String name, syntax;
     Node node;

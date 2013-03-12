@@ -21,6 +21,7 @@ package org.jafer.util.xml;
 import org.jafer.exception.JaferException;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
 import java.io.OutputStream;
@@ -352,7 +353,11 @@ public class XMLTransformer {
   public static Templates createTemplate(URL resource) throws JaferException {
 
     if (resource != null)
-      return createTemplate(resource.getFile());
+      try {
+    	  return createTemplate(resource.openStream());
+      } catch (IOException e) {
+    	  throw new JaferException("Could not read template content from " + resource.toExternalForm(), e);
+      }
     else
       throw new JaferException("Resource necessary for creating XML transformer template not found");
   }

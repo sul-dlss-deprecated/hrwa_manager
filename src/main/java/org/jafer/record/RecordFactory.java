@@ -20,7 +20,6 @@
 package org.jafer.record;
 import org.jafer.exception.JaferException;
 
-import org.jafer.zclient.ZClient;
 import org.jafer.conf.Config;
 import org.jafer.util.xml.DOMFactory;
 import org.jafer.util.xml.XMLTransformer;
@@ -47,19 +46,20 @@ import org.w3c.dom.Document;
  */
 public class RecordFactory {
 
-  private static Hashtable templatesMap, fromSerializer, toSerializer, cachedTemplates;
+  private static Hashtable<Boolean, Hashtable<String, Templates>> templatesMap;
+  private static Hashtable<String, Templates> cachedTemplates, fromSerializer, toSerializer;
   private static Logger logger;
 
   public RecordFactory() {
 
     logger = Logger.getLogger("org.jafer.record");
-    templatesMap = new Hashtable();
-    fromSerializer = new Hashtable();
-    toSerializer = new Hashtable();
+    templatesMap = new Hashtable<Boolean, Hashtable<String, Templates>>();
+    fromSerializer = new Hashtable<String, Templates>();
+    toSerializer = new Hashtable<String, Templates>();
     templatesMap.put(Boolean.TRUE, fromSerializer);
     templatesMap.put(Boolean.FALSE, toSerializer);
     /** @todo SRW/XMLRecord hack: */
-    cachedTemplates = new Hashtable();
+    cachedTemplates = new Hashtable<String, Templates>();
   }
 
   public Object getBER(DataObject dataObject, Document document, int recNo) throws JaferException {
@@ -67,7 +67,7 @@ public class RecordFactory {
     int[] recordSyntax;
     String serializerSchema, sourceSchema, dbName = "";
     Node recordRoot, recordNode;
-    Class recordClass;
+    Class<?> recordClass;
     DataObject recordObject;
 
     try {
@@ -94,7 +94,6 @@ public class RecordFactory {
 
   public Object getXML(DataObject dataObject, Document document, String targetSchema, int recNo) throws JaferException {
 
-    int[] recordSyntax;
     Node recordNode;
     String dbName = dataObject.getDatabaseName();
 
@@ -143,7 +142,7 @@ public class RecordFactory {
 /** @todo method assumes Record class has a BEREncoding object... */
     int[] recordSyntax;
     Node recordNode;
-    Class recordClass;
+    Class<?> recordClass;
     DataObject recordObject;
     Object record;
 
@@ -164,9 +163,9 @@ public class RecordFactory {
     return recordNode;
   }
 
-  private Class getRecordClass(int[] recordSyntax) throws JaferException {
+  private Class<?> getRecordClass(int[] recordSyntax) throws JaferException {
 
-    Class recordClass = null;
+    Class<?> recordClass = null;
     try{
         String className = Config.getRecordSerializer(Config.convertSyntax(recordSyntax));
         recordClass = Class.forName(className);
@@ -177,10 +176,10 @@ public class RecordFactory {
     return recordClass;
   }
 
-  private DataObject getRecordObject(Class recordClass, Object[] initArgs) throws JaferException {
+  private DataObject getRecordObject(Class<?> recordClass, Object[] initArgs) throws JaferException {
 
-    Constructor[] constructors = recordClass.getConstructors();
-    Class[] paramTypes;
+    Constructor<?>[] constructors = recordClass.getConstructors();
+    Class<?>[] paramTypes;
     int index;
     for (index = 0; index < constructors.length; index++) {
         paramTypes = constructors[index].getParameterTypes();
@@ -223,12 +222,12 @@ public class RecordFactory {
     String styleSheet;
     URL resource;
     Templates template;
-    Vector transforms;
-    Hashtable  map = (Hashtable)templatesMap.get(Boolean.valueOf(fromSerializer));
+    Vector<String> transforms;
+    Hashtable<String, Templates>  map = templatesMap.get(Boolean.valueOf(fromSerializer));
 
     transforms = Config.getTransforms(fromSerializer, Config.convertSyntax(recordSyntax), requestedRecordSchema);
     for (int i = 0; i < transforms.size(); i++) {
-        styleSheet = (String)transforms.get(i);
+        styleSheet = transforms.get(i);
         if (!map.containsKey(styleSheet)) {// lookup in hashtable
           try {
             resource =  this.getClass().getClassLoader().getResource(styleSheet);
@@ -251,19 +250,15 @@ public class RecordFactory {
     String styleSheet;
     URL resource;
     Templates template;
-    Vector transforms;
+    Vector<?> transforms;
 
     transforms = Config.getTransforms(recordSchema, requestedRecordSchema);
     for (int i = 0; i < transforms.size(); i++) {
         styleSheet = (String)transforms.get(i);
         if (!cachedTemplates.containsKey(styleSheet)) {
-          try {
-            resource =  this.getClass().getClassLoader().getResource(styleSheet);
-            template = XMLTransformer.createTemplate(resource);
-            cachedTemplates.put(styleSheet, template);
-          } catch (Exception e) {
-            throw new JaferException("Error creating template from stylesheet: " + styleSheet, e);
-          }
+        	resource =  this.getClass().getClassLoader().getResource(styleSheet);
+        	template = XMLTransformer.createTemplate(resource);
+        	cachedTemplates.put(styleSheet, template);
         }
         template = (Templates)cachedTemplates.get(styleSheet);
 //SRW version

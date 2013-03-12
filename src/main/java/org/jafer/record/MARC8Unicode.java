@@ -495,9 +495,9 @@ public class MARC8Unicode {
       id = getControlPageId();
 
     if (id == null) {
-      String message = "CharacterSet PageId is null";
+      String message = "CharacterSet PageId is null for key 0x" + Integer.toHexString(c);
       logger.log(Level.WARNING, message);
-      throw new JaferException(message);
+      //throw new JaferException(message);
     }
     return id;
   }
@@ -622,16 +622,16 @@ public class MARC8Unicode {
   }
 
   private boolean isDiacritic(int c) throws JaferException {
-
-    if (getPageId(c).equals(BASIC_HEBREW)) {
+	String id = getPageId(c);
+    if (BASIC_HEBREW.equals(getPageId(c))) {
       return (c >= DIACRITIC_BASIC_HEBREW_LOWER && c <= DIACRITIC_BASIC_HEBREW_UPPER);
-    } else if (getPageId(c).equals(BASIC_ARABIC)) {
+    } else if (BASIC_ARABIC.equals(id)) {
       return (c >= DIACRITIC_BASIC_ARABIC_LOWER && c <= DIACRITIC_BASIC_ARABIC_UPPER);
-    } else if (getPageId(c).equals(EXTENDED_ARABIC)) {
+    } else if (EXTENDED_ARABIC.equals(id)) {
       return (c >= DIACRITIC_EXTENDED_ARABIC_LOWER && c <= DIACRITIC_EXTENDED_ARABIC_UPPER);
-    } else if (getPageId(c).equals(BASIC_GREEK)) {
+    } else if (BASIC_GREEK.equals(id)) {
       return (c >= DIACRITIC_BASIC_GREEK_LOWER && c <= DIACRITIC_BASIC_GREEK_UPPER);
-    } else if (getPageId(c).equals(ANSEL)) {
+    } else if (ANSEL.equals(id)) {
       return (c >= DIACRITIC_ANSEL_LOWER && c <= DIACRITIC_ANSEL_UPPER);
     }
 
@@ -650,11 +650,11 @@ public class MARC8Unicode {
     throw new JaferException(message);
   }
 
-  private char[] toMultiByte(String multiByteHexValue) {
+  char[] toMultiByte(String multiByteHexValue) {
 
     char[] c = new char[3];
-    for (int n = 0; n < multiByteHexValue.length(); n += 2)
-      c[((n + 2) / 2) -1] = (char)Integer.parseInt(multiByteHexValue.substring(n, n + 2), 16);
+    for (int n = 0; n < 3; n++)
+      c[n] = (char)Integer.parseInt(multiByteHexValue.substring(n*2, n*2 + 2), 16);
     return c;
   }
 
