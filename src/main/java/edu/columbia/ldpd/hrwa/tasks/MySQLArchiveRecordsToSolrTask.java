@@ -101,9 +101,10 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 				" INNER JOIN " + HrwaManager.MYSQL_SITES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id = " + HrwaManager.MYSQL_SITES_TABLE_NAME + ".id " +
 				" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
 				" WHERE" +
-				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id IS NOT NULL" +
-				" AND" +
-				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id > " + currentRecordRetrievalOffset + " AND web_archive_records.id <= " + (currentRecordRetrievalOffset + HrwaManager.mySQLToSolrRowRetrievalSize)
+				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id > " + currentRecordRetrievalOffset +
+				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id <= " + (currentRecordRetrievalOffset + HrwaManager.mySQLToSolrRowRetrievalSize) +
+				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN ('DOCUMENT', 'HTML', 'PDF', 'SLIDESHOW', 'SPREADSHEET', 'XML')" +
+				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".hrwa_manager_todo = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "';"
 			);
 		}
 		

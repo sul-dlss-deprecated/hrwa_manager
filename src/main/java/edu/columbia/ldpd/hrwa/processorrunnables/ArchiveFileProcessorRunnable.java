@@ -113,7 +113,12 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 				
 			} else {
 				//Sleep when not actively processing anything
-				try { Thread.sleep(5); }
+				try {
+					Thread.sleep(5);
+					if(HrwaManager.verbose) {
+						System.out.println("Thread " + this.getUniqueRunnableId() + ": Sleeping...not actively processing anything (currentArcFileBeingProcessed == null).");
+					}
+				}
 				catch (InterruptedException e) { e.printStackTrace(); }
 			}
 			

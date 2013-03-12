@@ -162,7 +162,15 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 		while (resultSet.next()) {
 			
 			try {
+				
 				ASFSolrIndexer.indexDocAndExtractMetadataToSolr(resultSet);
+				
+				numArchiveRecordsIndexedIntoSolr++;
+				
+				if(HrwaManager.verbose) {
+					System.out.println("Thread " + this.getUniqueRunnableId() + ": Num records indexed into Solr: " + numArchiveRecordsIndexedIntoSolr);
+				}
+				
 			} catch (SolrServerException e1) {
 				HrwaManager.writeToLog("Error: SolrServerException encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
 				e1.printStackTrace();
@@ -170,23 +178,17 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 				HrwaManager.writeToLog("Error: IOException encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
 				e2.printStackTrace();
 			} catch (Exception e3) {
-				HrwaManager.writeToLog("Error: Unknown Exception encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
-				e3.printStackTrace();
+				HrwaManager.writeToLog("Error: Unknown Exception encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id") + "\n" +
+				e3.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
 			}
 			
-			numArchiveRecordsIndexedIntoSolr++;
-			
-			if(HrwaManager.verbose) {
-				System.out.println("Thread " + this.getUniqueRunnableId() + ": Num records indexed into Solr: " + numArchiveRecordsIndexedIntoSolr);
-			}
-			
-			//Every x number of records, print a line in the memory log to keep track of memory consumption over time
-			if(numArchiveRecordsIndexedIntoSolr % 1000 == 0) {
-				HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
-			}
 		}
 		
-		ASFSolrIndexer.commit();
+		HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
+		
+		if(ASFSolrIndexer.commit()) {
+			//TODO: If everything committed successfully, mark this set of MySQL records as having been updated (i.e. set hrwa_manager_todo to NULL for these rows) 
+		}
 	}
 	
 }

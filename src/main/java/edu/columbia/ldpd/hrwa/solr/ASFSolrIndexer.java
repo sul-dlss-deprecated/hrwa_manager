@@ -132,7 +132,7 @@ public class ASFSolrIndexer {
 		// https://wiki.cul.columbia.edu/display/mellonhumanrights/Sample+responses+for+Excel%2C+HTML%2C+PDF%2C+Powerpoint%2C+and+Word+files
 		
 		updateRequest.setParams(modifiableSolrParams);
-		updateRequest.setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true);
+		//updateRequest.setAction(AbstractUpdateRequest.ACTION.COMMIT, true, true);
 		
 		if(asfSolrServer.request(updateRequest) == null) {
 			HrwaManager.writeToLog("Error: Could not upload file to solr: " + blobFile.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
@@ -149,9 +149,14 @@ public class ASFSolrIndexer {
 		}
 	}
 	
-	public static void commit() {
+	/**
+	 * Returns true on success, false on failure.
+	 * @return
+	 */
+	public static boolean commit() {
 		try {
 			asfSolrServer.commit();
+			return true;
 		} catch (SolrServerException e) {
 			HrwaManager.writeToLog("Error: SolrServerException encountered while attempting to commit a batch of documents to the ASF Solr server at: " + HrwaManager.asfSolrUrl, true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
@@ -159,6 +164,8 @@ public class ASFSolrIndexer {
 			HrwaManager.writeToLog("Error: IOException encountered while attempting to commit a batch of documents to the ASF Solr server at: " + HrwaManager.asfSolrUrl, true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
 		}
+		
+		return false;
 	}
 	
 	/**

@@ -146,10 +146,12 @@ public class ArchiveToMySQLTask extends HrwaTask {
 			if(currentMemoryUsage > HrwaManager.maxMemoryThresholdInBytesForStartingNewThreadProcesses) {
 				
 				//If current memory usage is too high, wait until it's lower before processing another file on another thread
-				System.out.println("Memory usage is currently too high to concurrently start processing an additional file.  Waiting until usage is lower... (Currently: " + HrwaManager.bytesToMegabytes(currentMemoryUsage) + " MB)");
 				try {
 					Thread.sleep(100);
 					//System.out.println("Sleeping for X ms because no threads are available for processing...");
+					if(HrwaManager.verbose) {
+						System.out.println("HrwaManager ArchiveToMySQL Task is sleeping for 100 ms because memory usage is currently too high to concurrently start processing an additional file.  Waiting until usage is lower... (Current memory usage: " + HrwaManager.bytesToMegabytes(currentMemoryUsage) + " MB)");
+					}
 				}
 				catch (InterruptedException e) { e.printStackTrace(); }
 				
@@ -174,7 +176,9 @@ public class ArchiveToMySQLTask extends HrwaTask {
 				
 				try {
 					Thread.sleep(10);
-					//System.out.println("Sleeping for X ms because no threads are available for processing...");
+					if(HrwaManager.verbose) {
+						System.out.println("HrwaManager ArchiveToMySQL Task is sleeping for 10 ms because no threads are currently available for processing...");
+					}
 				}
 				catch (InterruptedException e) { e.printStackTrace(); }
 			}

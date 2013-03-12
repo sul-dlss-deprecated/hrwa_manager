@@ -130,7 +130,7 @@ public class MySQLHelper {
 			"  KEY `language` (`language`(255))," +
 			"  KEY `original_urls` (`original_urls`(255))," +
 			"  KEY `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "` (`" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "`)" +
-			") ENGINE=InnoDB  DEFAULT CHARSET=utf8 AUTO_INCREMENT=2;" //2 is important here! We want to save room for id=1 for 
+			") ENGINE=InnoDB  DEFAULT CHARSET=utf8 AUTO_INCREMENT=1;" 
 		);
 		
 		pstmt0.execute();
