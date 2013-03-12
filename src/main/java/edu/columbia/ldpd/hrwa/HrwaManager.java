@@ -36,6 +36,8 @@ public class HrwaManager {
 	public static final int 	EXIT_CODE_SUCCESS 	= 1;
     public static final int 	EXIT_CODE_ERROR 	= 1;
 	public static final String 	applicationName 	= "hrwa_indexer";
+	
+	public static final String multiValuedFieldMySQLSeparatorPrefixChar = "|";
 
 	private static Options    	options;
     private static CommandLine	cmdLine;
@@ -467,8 +469,8 @@ public class HrwaManager {
 	        	System.out.println("* Will run ArchiveToMySQLTask.");
 	        }
 	        
-	        //Task 4: mysqlarchiverecordtosolr
-	        if ( cmdLine.hasOption( "mysqlarchiverecordtosolr") ) {
+	        //Task 4: mysqlarchiverecordstosolr
+	        if ( cmdLine.hasOption( "mysqlarchiverecordstosolr") ) {
 	        	HrwaManager.runMySQLArchiveRecordsToSolrTask = true;
 	        	System.out.println("* Will run MySQLArchiveRecordsToSolrTask.");
 	        }
@@ -502,7 +504,7 @@ public class HrwaManager {
         options.addOption( "archivetomysql",			false, "Run ArchiveToMySQLTask" );
         options.addOption( "talktocliotest",			false, "Run TalkToClioTestTask" );
         options.addOption( "archivefilereadtest",		false, "Run ArchiveFileReadTestTask" );
-        options.addOption( "mysqlarchiverecordtosolr",	false, "Run MySQLArchiveRecordsToSolrTask" );
+        options.addOption( "mysqlarchiverecordstosolr",	false, "Run MySQLArchiveRecordsToSolrTask" );
         
         options.addOption(
         		OptionBuilder.withArgName( "directory" )

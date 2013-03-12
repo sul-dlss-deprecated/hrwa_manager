@@ -85,12 +85,17 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 		HrwaManager.writeToLog("Max(id) from MySQL web archive records table: " + maxWebArchiveRecordMySQLId, true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		for(long currentRecordRetrievalOffset = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.mySQLToSolrRowRetrievalSize) {
+			
+			HrwaManager.writeToLog(	"Processing MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.mySQLToSolrRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.mySQLToSolrRowRetrievalSize) + "\n" +
+					"-- Total number of relevant archive records indexed into Solr so far (at this exact moment): " + this.getTotalNumberOfRelevantArchiveRecordsIndexedIntoSolrAtThisExactMoment(),
+					true, HrwaManager.LOG_TYPE_STANDARD);
+			
 			indexMySQLArchiveRecordsIntoSolr(
 				"SELECT " +
-				"archived_url, record_date, digest, archive_file, length, url, " +
-				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected, " +
+				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id as id, archived_url, record_date, digest, archive_file, length, url, " +
+				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected as mimetype_detected, blob_path, " +
 				"mimetype_code, reader_identifier, record_identifier, status_code, " +
-				"bib_key, creator_name, " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".hoststring, organization_type, organization_based_in, " +
+				"original_urls, bib_key, creator_name, " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".hoststring as hoststring, organization_type, organization_based_in, " +
 				"geographic_focus, language " +
 				" FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + 
 				" INNER JOIN " + HrwaManager.MYSQL_SITES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id = " + HrwaManager.MYSQL_SITES_TABLE_NAME + ".id " +
@@ -121,7 +126,7 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 		
 		ASFSolrIndexer.shutdownSingleSolrServerObject();
 		
-		HrwaManager.writeToLog("Total number of archive records processed: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(), true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Total number of archive records processed: " + this.getTotalNumberOfRelevantArchiveRecordsIndexedIntoSolrAtThisExactMoment(), true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		writeTaskFooterMessageAndPrintTotalTime();
 		
@@ -181,7 +186,7 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 		
 	}
 	
-	public long getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment() {
+	public long getTotalNumberOfRelevantArchiveRecordsIndexedIntoSolrAtThisExactMoment() {
 		
 		long total = 0;
 		

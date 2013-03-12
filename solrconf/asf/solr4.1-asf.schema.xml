@@ -108,9 +108,9 @@
         Also, indexed must be true to be able to sort by a field.
    -->
    <field name="archived_url"              type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="date_of_capture_YYYY"      type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="date_of_capture_YYYYMM"    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="date_of_capture_YYYYMMDD"  type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="date_of_capture_yyyy"      type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="date_of_capture_yyyymm"    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="date_of_capture_yyyymmdd"  type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
    <field name="digest"                    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
    <field name="filename"                  type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="length"                    type="long"         indexed="true"  stored="true"  required="true"  multiValued="false" />

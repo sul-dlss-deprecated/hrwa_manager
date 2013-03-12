@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.columbia.ldpd.hrwa</groupId>
   <artifactId>hrwa_manager</artifactId>
-  <version>0.0.4</version>
+  <version>0.0.5</version>
   <name>HRWA Manager</name>
   <description>Human Rights Web Archive manager application.</description>
   <url>https://github.com/cul/hrwa_manager</url>
@@ -167,6 +167,21 @@
 		<artifactId>solr-solrj</artifactId>
 		<version>4.1.0</version>
 	</dependency>
+	<dependency>
+		<groupId>org.apache.solr</groupId>
+		<artifactId>solr-cell</artifactId>
+		<version>4.1.0</version>
+	</dependency>
+	<!--
+		The jcl-over-slf4j dependency (specifically version 1.5.8) is VERY important. 
+		It fixes a conflict between different required loggers for various other 
+		dependencies.
+	-->
+	<dependency>
+		<groupId>org.slf4j</groupId>
+		<artifactId>jcl-over-slf4j</artifactId>
+		<version>1.5.8</version>
+	</dependency>
   </dependencies>
   <dependencyManagement>
   	<dependencies>
@@ -236,7 +251,7 @@
 		          <source>1.6</source>
 		          <target>1.6</target>
 		        </configuration>
-	      	</plugin>
+	      	</plugin>	      	
 		</plugins>
   </build>
 	  

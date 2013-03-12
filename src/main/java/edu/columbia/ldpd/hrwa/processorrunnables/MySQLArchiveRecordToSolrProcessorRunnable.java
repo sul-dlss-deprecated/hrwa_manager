@@ -21,6 +21,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.common.SolrInputDocument;
+import org.apache.solr.common.params.ModifiableSolrParams;
 import org.archive.io.ArchiveReader;
 import org.archive.io.ArchiveReaderFactory;
 import org.archive.io.arc.ARCRecord;
@@ -156,57 +157,36 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 	
 	public void indexArchiveRecordMySQLResultSetToSolr(ResultSet resultSet) throws SQLException {
 		
-		//TODO: This method should actually index stuff into Solr!
-		
-		Collection<SolrInputDocument> docBatchToIndex = new ArrayList<SolrInputDocument>();
+		ModifiableSolrParams modifiableSolrParams;
 		
 		while (resultSet.next()) {
 			
-			/*
-			// Required Solr Fields
-			archivedUrl
-			dateOfCaptureYYYY
-			dateOfCaptureYYYYMM
-			dateOfCaptureYYYYMMDD
-			digest
-			filename
-			length
-			originalUrl
-			mimetype
-			mimetypeCode
-			readerIdentifier
-			recordDate
-			recordIdentifier
-			statusCode
-			contents
-			bib_key
-			creator_name
-			domain
-			organization_type
-			organization_based_in
-			geographic_focus
-			language
-			website_original_urls
-			*/
+			try {
+				ASFSolrIndexer.indexDocAndExtractMetadataToSolr(resultSet);
+			} catch (SolrServerException e1) {
+				HrwaManager.writeToLog("Error: SolrServerException encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
+				e1.printStackTrace();
+			} catch (IOException e2) {
+				HrwaManager.writeToLog("Error: IOException encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
+				e2.printStackTrace();
+			} catch (Exception e3) {
+				HrwaManager.writeToLog("Error: Unknown Exception encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
+				e3.printStackTrace();
+			}
 			
-			//docBatchToIndex.add()
 			numArchiveRecordsIndexedIntoSolr++;
 			
+			if(HrwaManager.verbose) {
+				System.out.println("Thread " + this.getUniqueRunnableId() + ": Num records indexed into Solr: " + numArchiveRecordsIndexedIntoSolr);
+			}
+			
 			//Every x number of records, print a line in the memory log to keep track of memory consumption over time
-			if(numArchiveRecordsIndexedIntoSolr % 1500 == 0) {
+			if(numArchiveRecordsIndexedIntoSolr % 1000 == 0) {
 				HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
 			}
 		}
 		
-		try {
-			ASFSolrIndexer.commitBatchToSolr(docBatchToIndex);
-		} catch (SolrServerException e) {
-			HrwaManager.writeToLog("Error: SolrServerException encountered while attempting to commit a batch of documents to the ASF Solr server at: " + HrwaManager.asfSolrUrl, true, HrwaManager.LOG_TYPE_ERROR);
-			e.printStackTrace();
-		} catch (IOException e) {
-			HrwaManager.writeToLog("Error: IOException encountered while attempting to commit a batch of documents to the ASF Solr server at: " + HrwaManager.asfSolrUrl, true, HrwaManager.LOG_TYPE_ERROR);
-			e.printStackTrace();
-		}
+		ASFSolrIndexer.commit();
 	}
 	
 }
