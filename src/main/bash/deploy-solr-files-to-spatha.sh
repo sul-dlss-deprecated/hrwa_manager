@@ -6,6 +6,8 @@ SOLR_ASF_CONF_DIR=/opt/solr-4.1/hrwa-asf/conf/
 
 BASEDIR=$(dirname $0)
 
+echo "Deploying Solr ASF/FSF solrconf/schema files to: $SERVER"
+
 #Rename existing files to name.xml.previous
 # Move files only if they exist --> if [ -a file ]; then echo 'move file'; fi
 REMOTE_MOVE_COMMANDS_TO_RUN="cd $SOLR_FSF_CONF_DIR"
