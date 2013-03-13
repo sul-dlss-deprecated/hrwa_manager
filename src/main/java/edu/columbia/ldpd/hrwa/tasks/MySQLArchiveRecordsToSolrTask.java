@@ -56,8 +56,6 @@ import edu.columbia.ldpd.hrwa.solr.ASFSolrIndexer;
 
 public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 	
-	private String[] validArchiveFileExtensions = {"arc.gz", "warc.gz"};
-	
 	//How many threads will we create?  HrwaManager.maxUsableProcessors
 	private MySQLArchiveRecordToSolrProcessorRunnable[] mySQLArchiveRecordToSolrProcessorRunnables;
 	Future[] mySQLArchiveRecordToSolrProcessorFutures;
@@ -90,22 +88,7 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 					"-- Total number of relevant archive records indexed into Solr so far (at this exact moment): " + this.getTotalNumberOfRelevantArchiveRecordsIndexedIntoSolrAtThisExactMoment(),
 					true, HrwaManager.LOG_TYPE_STANDARD);
 			
-			indexMySQLArchiveRecordsIntoSolr(
-				"SELECT " +
-				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id as id, archived_url, record_date, digest, archive_file, length, url, " +
-				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected as mimetype_detected, blob_path, " +
-				"mimetype_code, reader_identifier, record_identifier, status_code, " +
-				"original_urls, bib_key, creator_name, " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".hoststring as hoststring, organization_type, organization_based_in, " +
-				"geographic_focus, language " +
-				" FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + 
-				" INNER JOIN " + HrwaManager.MYSQL_SITES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id = " + HrwaManager.MYSQL_SITES_TABLE_NAME + ".id " +
-				" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
-				" WHERE" +
-				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id > " + currentRecordRetrievalOffset +
-				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id <= " + (currentRecordRetrievalOffset + HrwaManager.mySQLToSolrRowRetrievalSize) +
-				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN ('DOCUMENT', 'HTML', 'PDF', 'SLIDESHOW', 'SPREADSHEET', 'XML')" +
-				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".hrwa_manager_todo = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "';"
-			);
+			indexMySQLArchiveRecordsIntoSolr(currentRecordRetrievalOffset);
 		}
 		
 		//CLEANUP TIME
@@ -136,9 +119,8 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 	/**
 	 * Passes the given MySQL selectQuery to one of the available MySQLArchiveRecordToSolrProcessorRunnable worker threads.
 	 * If no worker threads are currently available, this method waits until one is available.
-	 * @param selectQuery
 	 */
-	public void indexMySQLArchiveRecordsIntoSolr(String selectQuery) {
+	public void indexMySQLArchiveRecordsIntoSolr(long startingRecordIdForMySQLArchiveRecordRowsBeingProcessed) {
 		
 		boolean lookingForAvailableProcessorThread = true;
 		
@@ -165,19 +147,19 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 					if( ! singleProcessorRunnable.isProcessingAMySQLArchiveRecordQuery() ) {
 						lookingForAvailableProcessorThread = false;
 						
-						singleProcessorRunnable.queueMySQLArchiveRecordQueryForProcessing(selectQuery);
+						singleProcessorRunnable.queueMySQLArchiveRecordQueryForProcessing(startingRecordIdForMySQLArchiveRecordRowsBeingProcessed);
 						// Uncomment the line below to perform single-threaded
 						// debugging/processing (by directly calling the
 						// processMySQLArchiveRecordQueryAndSendToSolr() method). If you do uncomment this
 						// line, then you should comment out the line above (because
 						// you no longer want to queue archive file processing).
-						//singleProcessorRunnable.processMySQLArchiveRecordQueryAndSendToSolr(selectQuery);
+						//singleProcessorRunnable.processMySQLArchiveRecordQueryAndSendToSolr(startingRecordIdForMySQLArchiveRecordRowsBeingProcessed);
 						break;
 					}
 				}
 				
 				try {
-					Thread.sleep(10);
+					Thread.sleep(100);
 					//System.out.println("Sleeping for X ms because no threads are available for processing...");
 				}
 				catch (InterruptedException e) { e.printStackTrace(); }
@@ -249,71 +231,5 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 		
 		HrwaManager.writeToLog("All " + HrwaManager.maxUsableProcessors + " threads have been shut down.", true, HrwaManager.LOG_TYPE_STANDARD);
 	}
-	
-	////////////////////////////////
-	/* Archive File List Creation */
-	////////////////////////////////
-	
-	/**
-	 * Recursively scans a directory, collecting Files that are matched by the passed fileExtensionFilter. Returns the resulting File[],
-	 * with files alphabetically sorted by their full paths. 
-	 * @param String dir The directory to recursively search through.
-	 * @param String[] fileExtensionFilter File extensions to include in the search. All unspecified file extensions will be excluded.
-	 * @return
-	 */
-	public static File[] getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(String pathToArchiveDirectory, String[] fileExtensionFilter) {
-
-		File directory = new File(pathToArchiveDirectory);
-
-		if (! directory.exists()) {
-			HrwaManager.writeToLog("Error: achiveFileDir path " + directory.toString() + " does not exist.", true, HrwaManager.LOG_TYPE_ERROR);
-			System.exit(HrwaManager.EXIT_CODE_ERROR);
-		}
-		if (! directory.isDirectory()) {
-			HrwaManager.writeToLog("Error: achiveFileDir path " + directory.toString() + " is not a directory.", true, HrwaManager.LOG_TYPE_ERROR);
-			System.exit(HrwaManager.EXIT_CODE_ERROR);
-		}
-		if (! directory.canRead()) {
-			HrwaManager.writeToLog("Error: achiveFileDir path " + directory.toString() + " is not readable.", true, HrwaManager.LOG_TYPE_ERROR);
-			System.exit(HrwaManager.EXIT_CODE_ERROR);
-		}
-
-		// Get file iterator that will recurse subdirectories in
-		// archiveDirectory, only grabbing files with valid archive file
-		// extensions
-		// Note: FileUtils.iterateFiles returns a basic Iterator, and NOT a
-		// generic Iterator. That's unfortunate (because I like Generics), but
-		// I'll have to work with it anyway.
-		Iterator<File> fileIterator = FileUtils.iterateFiles(
-			directory,
-			fileExtensionFilter,
-			true
-		);
-
-		//Generate an alphabetically-ordered list of all the files that we'll be using
-		ArrayList<File> fileList = new ArrayList<File>();
-		while(fileIterator.hasNext())
-		{
-			fileList.add(fileIterator.next());
-		}
-
-		sortFileList(fileList);
-
-		return fileList.toArray(new File[fileList.size()]);
-	}
-	
-	public static void sortFileList(ArrayList<File> fileListToSort) {
-
-		Collections.sort(fileListToSort, new Comparator<File>(){
-			
-			public int compare(File f1, File f2)
-		    {
-		        return (f1.getPath()).compareTo(f2.getPath());
-		    }
-
-		});
-
-	}
-	
 	
 }

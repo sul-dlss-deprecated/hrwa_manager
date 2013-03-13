@@ -43,7 +43,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 	
 	private int uniqueRunnableId;
 	private boolean running = true;
-	private String currentMySQLArchiveRecordQueryBeingProcessed = null;
+	private long currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed = -1;
 	private long numArchiveRecordsIndexedIntoSolr = 0;
 	private Boolean isProcessingAMySQLQuery = false;
 	
@@ -63,17 +63,17 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 				break;
 			}
 			
-			if(currentMySQLArchiveRecordQueryBeingProcessed != null) {
+			if(currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed != -1) {
 				
 				if( ! HrwaManager.previewMode ) {
-					processMySQLArchiveRecordQueryAndSendToSolr(currentMySQLArchiveRecordQueryBeingProcessed);
+					processMySQLArchiveRecordQueryAndSendToSolr(currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed);
 				} else {
-					HrwaManager.writeToLog("PREVIEWING the Solr indexing of the results from the MySQL query (" + currentMySQLArchiveRecordQueryBeingProcessed + "). No actual Solr changes will be made.", true, HrwaManager.LOG_TYPE_NOTICE);
+					HrwaManager.writeToLog("PREVIEWING the Solr indexing of the results from the MySQL batch (" + currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed + " - " + (currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed+HrwaManager.mySQLToSolrRowRetrievalSize-1) + "). No actual Solr changes will be made.", true, HrwaManager.LOG_TYPE_NOTICE);
 				}
 				
 				//done processing!
 				synchronized (isProcessingAMySQLQuery) {
-					currentMySQLArchiveRecordQueryBeingProcessed = null;
+					currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed = -1;
 					isProcessingAMySQLQuery = false;
 				}
 				
@@ -88,14 +88,29 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 		System.out.println("Thread " + getUniqueRunnableId() + " complete!");
 	}
 	
-	public void processMySQLArchiveRecordQueryAndSendToSolr(String archiveRecordSelectQuery) {
+	public void processMySQLArchiveRecordQueryAndSendToSolr(long startingRecordIdForMySQLArchiveRecordRowsBeingProcessed) {
 		
-		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Start process of results from MySQL query: " + archiveRecordSelectQuery, true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Start process of results from MySQL batch: (" + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + " - " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed+HrwaManager.mySQLToSolrRowRetrievalSize-1) + ")", true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		try {
 			Connection conn = MySQLHelper.getNewDBConnection(true);
 			
-			PreparedStatement pstmt1 = conn.prepareStatement(archiveRecordSelectQuery);
+			PreparedStatement pstmt1 = conn.prepareStatement(
+				"SELECT " +
+				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id as id, archived_url, record_date, digest, archive_file, length, url, " +
+				HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected as mimetype_detected, blob_path, " +
+				"mimetype_code, reader_identifier, record_identifier, status_code, " +
+				"original_urls, bib_key, creator_name, " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".hoststring as hoststring, organization_type, organization_based_in, " +
+				"geographic_focus, language " +
+				" FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + 
+				" INNER JOIN " + HrwaManager.MYSQL_SITES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id = " + HrwaManager.MYSQL_SITES_TABLE_NAME + ".id " +
+				" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
+				" WHERE" +
+				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id >= " + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed +
+				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id < " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + HrwaManager.mySQLToSolrRowRetrievalSize) +
+				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN ('DOCUMENT', 'HTML', 'PDF', 'SLIDESHOW', 'SPREADSHEET', 'XML')" +
+				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "." + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "'"
+			);
 			ResultSet resultSet = pstmt1.executeQuery();
 			
 			indexArchiveRecordMySQLResultSetToSolr(resultSet);
@@ -105,12 +120,12 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 	        conn.close();
         
 		} catch (SQLException e) {
-			HrwaManager.writeToLog("An error occurred while attempting to retrieve mysql archive record data from the web archive recods table. Query: " + archiveRecordSelectQuery, true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog("An error occurred while attempting to retrieve mysql archive record data from the web archive recods table. Query batch: (" + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + " - " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed+HrwaManager.mySQLToSolrRowRetrievalSize-1) + ")", true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
 			System.exit(0);
 		}
 		
-		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Processing of results from MySQL query " + archiveRecordSelectQuery + " COMPLETE!", true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Thread " + this.getUniqueRunnableId() + ": Processing of results from MySQL query batch (" + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + " - " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed+HrwaManager.mySQLToSolrRowRetrievalSize-1) + ") COMPLETE!", true, HrwaManager.LOG_TYPE_STANDARD);
 		
 	}
 	
@@ -140,15 +155,15 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 	 * This function returns almost immediately.  Actual processing happens asynchronously.
 	 * @param archiveFile
 	 */
-	public void queueMySQLArchiveRecordQueryForProcessing(String archiveRecordSelectQuery) {
+	public void queueMySQLArchiveRecordQueryForProcessing(long startingRecordIdForMySQLArchiveRecordRowsBeingProcessed) {
 		
-		HrwaManager.writeToLog("Notice: MySQL query claimed by MySQLArchiveRecordToSolrProcessorRunnable " + this.getUniqueRunnableId() + " (" + archiveRecordSelectQuery + ")", true, HrwaManager.LOG_TYPE_NOTICE);
+		HrwaManager.writeToLog("Notice: MySQL batch claimed by MySQLArchiveRecordToSolrProcessorRunnable " + this.getUniqueRunnableId() + " (" + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + " - " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed+HrwaManager.mySQLToSolrRowRetrievalSize-1) + ")", true, HrwaManager.LOG_TYPE_NOTICE);
 		
 		if(isProcessingAMySQLQuery) {
 			HrwaManager.writeToLog("Error: MySQLArchiveRecordToSolrProcessorRunnable with id " + this.uniqueRunnableId + " cannot accept a new MySQL query to process because isProcessingAMySQLQuery == true. This error should never appear if things were coded properly.", true, HrwaManager.LOG_TYPE_ERROR);
 		} else {
 			synchronized (isProcessingAMySQLQuery) {
-				currentMySQLArchiveRecordQueryBeingProcessed = archiveRecordSelectQuery;
+				currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed = startingRecordIdForMySQLArchiveRecordRowsBeingProcessed;
 				isProcessingAMySQLQuery = true;
 			}
 			//System.out.println("Thread " + this.uniqueRunnableId + ": Just started processing.");
@@ -187,7 +202,38 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 		HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
 		
 		if(ASFSolrIndexer.commit()) {
-			//TODO: If everything committed successfully, mark this set of MySQL records as having been updated (i.e. set hrwa_manager_todo to NULL for these rows) 
+			// // If everything committed successfully, mark this set of MySQL
+			// records as having been updated (i.e. set hrwa_manager_todo to
+			// NULL for these rows)
+			
+			try {
+				Connection conn = MySQLHelper.getNewDBConnection(true);
+				
+				String query = "UPDATE " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + 
+						" INNER JOIN " + HrwaManager.MYSQL_SITES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".site_id = " + HrwaManager.MYSQL_SITES_TABLE_NAME + ".id " +
+						" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
+						" SET " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "." + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = NULL" + 
+						" WHERE" +
+						" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id >= " + currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed +
+						" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id < " + (currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed + HrwaManager.mySQLToSolrRowRetrievalSize) +
+						" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN ('DOCUMENT', 'HTML', 'PDF', 'SLIDESHOW', 'SPREADSHEET', 'XML')" +
+						" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "." + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "'"; 
+				
+				System.out.println(query);
+				
+				PreparedStatement pstmt1 = conn.prepareStatement(query);
+				
+				pstmt1.execute();
+				
+				pstmt1.close();
+				conn.commit();
+		        conn.close();
+	        
+			} catch (SQLException e) {
+				HrwaManager.writeToLog("An error occurred while attempting to reset the values of recently UPDATED mysql rows in the web archive recods table. Query batch: (" + currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed + " - " + (currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed+HrwaManager.mySQLToSolrRowRetrievalSize-1) + ")", true, HrwaManager.LOG_TYPE_ERROR);
+				e.printStackTrace();
+				System.exit(0);
+			}
 		}
 	}
 	

@@ -328,11 +328,18 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		if(siteId > -1) {
 			this.mainRecordInsertPstmt.setInt(	16, siteId                					);
 		} else {
+			//Set site_id to NULL for records that aren't linked to a site
 			this.mainRecordInsertPstmt.setNull(	16, java.sql.Types.INTEGER                	);
 		}
 		this.mainRecordInsertPstmt.setLong  (	17, loadTimestamp							);
 		this.mainRecordInsertPstmt.setBoolean(	18, linkedViaRelatedHost					);
-		this.mainRecordInsertPstmt.setString  (	19, MySQLHelper.HRWA_MANAGER_TODO_UPDATED	);
+		
+		if(siteId > -1) {
+			this.mainRecordInsertPstmt.setString  (	19, MySQLHelper.HRWA_MANAGER_TODO_UPDATED );
+		} else {
+			//Set hrwa_manager_todo to NULL for records that aren't linked to a site
+			this.mainRecordInsertPstmt.setNull    (	19, java.sql.Types.VARCHAR	);
+		}
 		
 		this.mainRecordInsertPstmt.addBatch();
 		if ((numRelevantArchiveRecordsProcessed + 1) % HrwaManager.mysqlCommitBatchSize == 0) {
