@@ -36,7 +36,6 @@ import org.jafer.exception.JaferException;
 import org.jafer.util.PDUDriver;
 import org.jafer.conf.Config;
 import org.jafer.record.TermRecord;
-import org.jafer.zclient.Session;
 import org.jafer.query.XMLRPNQuery;
 
 import java.util.Vector;
@@ -54,14 +53,13 @@ import z3950.v3.ScanRequest;
 import z3950.v3.ScanResponse;
 
 public class Scan {
+	
+	private static final XMLRPNQuery xmlQuery = new XMLRPNQuery();
 
-  private Session session;
-  private PDUDriver pduDriver;
+  private final PDUDriver pduDriver;
 
-  public Scan(Session session) {
-
-    this.session = session;
-    this.pduDriver = session.getPDUDriver();
+  public Scan(PDUDriver pduDriver) {
+    this.pduDriver = pduDriver;
   }
 
 /**
@@ -69,18 +67,17 @@ public class Scan {
  * handle surrogate diags
  * can throw JaferException containing diagnostic
  */
-  public Vector scan(String[] databases, int nTerms, int step, int position, Node term) throws JaferException, ConnectionException {
+  public Vector<TermRecord> scan(String[] databases, int nTerms, int step, int position, Node term) throws JaferException, ConnectionException {
 
-    XMLRPNQuery xmlQuery = new XMLRPNQuery();
     return scan(databases, nTerms, step, position, xmlQuery.processConstraintModelNode(term).c_op.c_attrTerm);
   }
 
-  public Vector scan(String[] databases, int nTerms, int step, int position, Object termObject) throws JaferException, ConnectionException {
+  public Vector<TermRecord> scan(String[] databases, int nTerms, int step, int position, Object termObject) throws JaferException, ConnectionException {
 
     if (!(termObject instanceof AttributesPlusTerm))
       throw new JaferException("termObject is not of type z3950.v3.AttributesPlusTerm");
     AttributesPlusTerm term = (AttributesPlusTerm)termObject;
-    Vector terms = new Vector();
+    Vector<TermRecord> terms = new Vector<TermRecord>();
     ScanRequest sr = new ScanRequest();
 
     sr.s_attributeSet = new AttributeSetId();

@@ -37,25 +37,14 @@ import org.jafer.exception.JaferException;
 
 public class XMLRecord extends DataObject {
 
-  private Node root;
-  private String schema;
-  private BEREncoding ber;
   public static final String NAMESPACE = "http://www.jafer.org/formats/xml";
 
   public XMLRecord(String dbName, BEREncoding ber) {
-
     super(dbName, ber);
-    this.ber = ber;
   }
 
   public XMLRecord(Node root, String schema) {
-
     super(root, schema);
-    /** @todo Why set the root here and in the superclass?
-     * do we need db name set?*/
- //    this.root = root.getFirstChild();
-    this.root = root;
-    this.schema = schema;
   }
 
   public BEREncoding getBER() throws RecordException {

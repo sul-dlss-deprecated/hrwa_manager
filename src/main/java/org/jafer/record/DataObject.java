@@ -45,10 +45,11 @@ import z3950.v3.DefaultDiagFormat;
 
 public class DataObject {
 
-  private String dbName, schema;
-  private BEREncoding ber;
-  private Node root;
-  private int[] syntax;
+  private String dbName;
+  protected String schema;
+  protected BEREncoding ber;
+  protected Node root;
+  protected int[] syntax;
 
   public DataObject() {}
 

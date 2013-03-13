@@ -34,6 +34,8 @@ import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.xml.transform.Result;
+
 import org.jafer.conf.Config;
 import org.jafer.exception.JaferException;
 import org.jafer.query.QueryException;
@@ -48,6 +50,7 @@ import org.jafer.record.TermRecord;
 import org.jafer.util.ConnectionException;
 import org.jafer.util.xml.DOMFactory;
 import org.jafer.util.xml.XMLSerializer;
+import org.jafer.util.xml.XMLTransformer;
 import org.jafer.zclient.operations.PresentException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -401,7 +404,7 @@ public abstract class AbstractClient extends
         logger.entering("ZClient", "public void setRecordCursor(int nRecord)");
 
         if (nRecord > 0 && nRecord <= getNumberOfResults()) {
-                this.recordCursor = new Integer(nRecord);
+                this.recordCursor = Integer.valueOf(nRecord);
 
             if (!getCache().contains(recordCursor)) {
               try {
@@ -417,7 +420,7 @@ public abstract class AbstractClient extends
                           );
 
                   for (int n = 0; n < dataObjects.size(); n++) {
-                    Integer recordNumber = new Integer(getStartRecordNumber() + n);
+                    Integer recordNumber = Integer.valueOf(getStartRecordNumber() + n);
                     if (!getCache().contains(recordNumber))
                         getCache().put(recordNumber, (DataObject)dataObjects.get(n));
                   }
@@ -816,7 +819,18 @@ protected void finalize() throws JaferException {
 
           return startRecordNumber;
   }
-
+  
+  static int[] syntaxForName(String name){
+	  try {
+		  return Config.convertSyntax(Config.getRecordSyntaxFromName(name));
+	  } catch (JaferException e){
+		  e.printStackTrace();
+		  throw new RuntimeException("Cold not find system syntax definition for " + name, e);
+	  }
+  }
+  
+  static final int [] DIAG_BIB1 = syntaxForName("DIAG_BIB1");
+  static final int [] JAFER = syntaxForName("JAFER");
 
   /**
    * Gets the CurrentRecord attribute of the ZClient object
@@ -829,21 +843,23 @@ protected void finalize() throws JaferException {
 
       int[] syntax = Config.convertSyntax(((Element)recordRoot).getAttribute("syntax"));
 
-      if (Config.isSyntaxEqual(syntax, Config.convertSyntax(Config.getRecordSyntaxFromName("DIAG_BIB1"))))
+      if (Config.isSyntaxEqual(syntax, DIAG_BIB1))
           throw new RecordException("Returned record is Surrogate Diagnostic",
                               new Field(recordRoot, recordRoot.getFirstChild()));
-      if (Config.isSyntaxEqual(syntax, Config.convertSyntax(Config.getRecordSyntaxFromName("JAFER"))))
+      if (Config.isSyntaxEqual(syntax, JAFER))
           throw new RecordException("Error generating XML from returned record",
                               new Field(recordRoot, recordRoot.getFirstChild()));
       if (isCheckRecordFormat()) {
           String schema = ((Element)recordRoot).getAttribute("schema");
-          if (!schema.equals(getRecordSchema()))
-            throw new RecordException("Returned record (schema: " + schema + ") does not match requested schema "
-                                        + getRecordSchema(), new Field(recordRoot, recordRoot.getFirstChild()));
+          if (!schema.equals(getRecordSchema())) {
+        	  XMLTransformer.transform(recordRoot, System.err);
+        	  throw new RecordException("Returned record (schema: \"" + schema + "\") does not match requested schema \""
+        			  + getRecordSchema() + "\"", new Field(recordRoot, recordRoot.getFirstChild()));
+          }
       }
       return new Field(recordRoot, recordRoot.getFirstChild());
   }
-
+  
   /**
    * Gets the CurrentDataObject attribute of the ZClient object
    * @return The CurrentDataObject value

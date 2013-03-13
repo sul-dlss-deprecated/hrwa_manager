@@ -149,7 +149,9 @@ public Node getXML(Document document) throws RecordException {
       asn1External = new ASN1External(this.ber, true);
       byte[] bytes = asn1External.c_octetAligned.get_bytes();
       setEncoding((char)bytes[9]);
-      int recordLength = getInt(bytes, 0, 5); // is there a way to encode this? Would be preferable for the leaders to match more closely.
+      // is there a way to encode this? Would be preferable for the leaders to match more closely.
+      //regardless, it's not used
+      //int recordLength = getInt(bytes, 0, 5);
       int baseAddress = getInt(bytes, 12, 5);
       int numFields = (baseAddress - 1 - 24) / 12;
 

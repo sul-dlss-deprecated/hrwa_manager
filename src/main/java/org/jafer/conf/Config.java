@@ -21,13 +21,22 @@ package org.jafer.conf;
 
 import org.jafer.exception.JaferException;
 import org.jafer.util.xml.DOMFactory;
+import org.jafer.util.xml.XMLTransformer;
 
 import java.io.InputStream;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Vector;
 
+import javax.xml.transform.Templates;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.TransformerFactoryConfigurationError;
+import javax.xml.transform.stream.StreamSource;
+
 import org.apache.xpath.CachedXPathAPI;
+import org.bouncycastle.util.Arrays;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -49,6 +58,10 @@ import org.w3c.dom.NodeList;
   public static final String SERVER_CONFIG_FILE     = "org/jafer/conf/server.xml";
   public static final String SERVER_DECODE_FILE     = "org/jafer/xsl/server/server-decode.xsl";
   public static final String SERVER_ENCODE_FILE     = "org/jafer/xsl/server/server-encode.xsl";
+  
+  private static Templates serverDecode;
+  
+  private static Templates serverEncode;
 
   private static Document recordTransformDocument;
   private static Hashtable<String,String> recordName;
@@ -56,6 +69,7 @@ import org.w3c.dom.NodeList;
   private static Hashtable<String,String> recordSerializer;
   private static Hashtable<String,String> recordSerializerTargetSchema;
   private static Hashtable<String, Hashtable<String, Hashtable<String, Node>>> recordTransformations;
+  private static Hashtable<String, int[]> syntaxCache;
     /** @todo SRW/XMLRecord hack: */
   private static Vector<String> targetSchemaNames;
   private static Vector<String> sourceSchemaNames;
@@ -113,6 +127,7 @@ import org.w3c.dom.NodeList;
     recordSerializer = new Hashtable<String, String>();
     recordSerializerTargetSchema = new Hashtable<String, String>();
     recordTransformations = new Hashtable<String, Hashtable<String, Hashtable<String, Node>>>();
+    syntaxCache = new Hashtable<String, int[]>();
     /** @todo SRW/XMLRecord hack: *//////
     targetSchemaNames = new Vector<String>();
     sourceSchemaNames = new Vector<String>();
@@ -130,15 +145,15 @@ import org.w3c.dom.NodeList;
     NodeList oidNodes = selectNodeList(recordDescriptorDocument, "recordDescriptor/oid");
     for (int i = 0; i < oidNodes.getLength(); i++) {
         oidNode = oidNodes.item(i);
-        oidName = getValue(selectSingleNode(oidNode, "@name"));
-        syntax = getValue(selectSingleNode(oidNode, "@syntax"));
-        priority = getValue(selectSingleNode(oidNode, "@priority"));
+        oidName = getNodeAttributeValue(oidNode,"name");
+        syntax = getNodeAttributeValue(oidNode, "syntax");
+        priority = getNodeAttributeValue(oidNode, "priority");
         serializerNode = selectSingleNode(oidNode, "serializer");
         recordName.put(syntax, oidName);
         recordSyntax.put(oidName, syntax);
         if (serializerNode != null) {
             serializer = getValue(serializerNode);
-            schema = getValue(selectSingleNode(serializerNode, "@targetSchema"));
+            schema = getNodeAttributeValue(serializerNode, "targetSchema");
             transformNode = recordTransformDocument.importNode(serializerNode, false);
             ((Element)transformNode).setAttribute("priority", priority);
             ((Element)transformNode).setAttribute("syntax", syntax);
@@ -181,9 +196,9 @@ import org.w3c.dom.NodeList;
     for (int i = 0; i < nodes.getLength(); i++) {
         String toSchema;
         if (fromSerializer)
-          toSchema = getValue(selectSingleNode(nodes.item(i), "@targetSchema"));
+          toSchema = getNodeAttributeValue(nodes.item(i), "targetSchema");
         else
-          toSchema = getValue(selectSingleNode(nodes.item(i), "@sourceSchema"));
+          toSchema = getNodeAttributeValue(nodes.item(i), "sourceSchema");
 
         if (!path.contains(toSchema)) {
 
@@ -199,7 +214,7 @@ import org.w3c.dom.NodeList;
             if (!transformNodes.containsKey(toSchema)) {
                 Node child = recordTransformDocument.importNode(nodes.item(i), true);
                 transformNode.appendChild(child);
-                schemaDepth.put(toSchema, new Integer(path.size()));
+                schemaDepth.put(toSchema, Integer.valueOf(path.size()));
                 transformNodes.put(toSchema, child);
                 buildTransformNodes(oidNode, child, path, schemaDepth, schemaNodes, toSchema, fromSerializer);
             }
@@ -234,7 +249,7 @@ import org.w3c.dom.NodeList;
   public static String getRecordSerializer(String syntax) throws JaferException {
 
     if (recordSerializer.containsKey(syntax))
-      return (String)recordSerializer.get(syntax);
+      return recordSerializer.get(syntax);
     else
       throw new JaferException("recordSyntax " + syntax + " not found in recordDescriptor file " + RECORD_DESCRIPTOR_FILE);
   }
@@ -242,7 +257,7 @@ import org.w3c.dom.NodeList;
   public static String getRecordSerializerTargetSchema(String syntax) throws JaferException {
 
     if (recordSerializerTargetSchema.containsKey(syntax))
-      return (String)recordSerializerTargetSchema.get(syntax);
+      return recordSerializerTargetSchema.get(syntax);
     else
       throw new JaferException("recordSyntax " + syntax + " not found in recordDescriptor file " + RECORD_DESCRIPTOR_FILE);
   }
@@ -250,7 +265,7 @@ import org.w3c.dom.NodeList;
   public static String getRecordNameFromSyntax(String syntax) throws JaferException {
 
     if (recordName.containsKey(syntax))
-      return (String)recordName.get(syntax);
+      return recordName.get(syntax);
     else
       throw new JaferException("recordSyntax " + syntax + " not found in recordDescriptor file " + RECORD_DESCRIPTOR_FILE);
   }
@@ -258,7 +273,7 @@ import org.w3c.dom.NodeList;
   public static String getRecordSyntaxFromName(String name) throws JaferException {
 
     if (recordSyntax.containsKey(name))
-      return (String)recordSyntax.get(name);
+      return recordSyntax.get(name);
     else
       throw new JaferException("syntax Name " + name + " not found in recordDescriptor file " + RECORD_DESCRIPTOR_FILE);
   }
@@ -270,39 +285,34 @@ import org.w3c.dom.NodeList;
 
   public static boolean isSyntaxEqual(int[] syntaxA, int[] syntaxB) {
 
-    if (syntaxA.length != syntaxB.length)
-      return false;
-
-    for (int x = 0; x < syntaxA.length; x++) {
-      if (syntaxA[x] != syntaxB[x])
-            return false;
-    }
-
-    return true;
+    return Arrays.areEqual(syntaxA, syntaxB);
   }
 
   public static int[] convertSyntax(String syntaxString) {
-/** @todo rename to convertSyntaxString()? */
-    if (syntaxString == null || syntaxString.equals("") || syntaxString.indexOf(".") < 1)
-      return new int[0];
+  /** @todo rename to convertSyntaxString()? */
+	  if (syntaxString == null || syntaxString.equals("") || syntaxString.indexOf('.') < 1)
+		  return new int[0];
+	  int[] result = syntaxCache.get(syntaxString);
+	  if (result == null) {
+		  String[] oidStringArray = syntaxString.split("\\.");
+		  result = new int[oidStringArray.length];
 
-    String[] oidStringArray = syntaxString.split("\\.");
-    int[] syntaxArray = new int[oidStringArray.length];
-
-    for (int i = 0; i < syntaxArray.length; i++)
-        syntaxArray[i] = Integer.parseInt(oidStringArray[i]);
-/** @todo catch NumberFormatException */
-    return syntaxArray;
+		  for (int i = 0; i < result.length; i++) result[i] = Integer.parseInt(oidStringArray[i]);
+		  /** @todo catch NumberFormatException */
+		  syntaxCache.put(syntaxString, result);
+	  }
+    return result;
   }
 
   public static String convertSyntax(int[] syntaxArray) {
 
-    String syntaxString = String.valueOf(syntaxArray[0]);
-
-    for (int i = 1; i < syntaxArray.length; i++)
-       syntaxString = syntaxString.concat("." + String.valueOf(syntaxArray[i]));
-
-    return syntaxString;
+    StringBuffer syntaxString = new StringBuffer(syntaxArray.length * 4);
+    syntaxString.append(syntaxArray[0]);
+    for (int i = 1; i < syntaxArray.length; i++) {
+       syntaxString.append('.');
+       syntaxString.append(String.valueOf(syntaxArray[i]));
+    }
+    return syntaxString.toString();
   }
 
   public static String getRecordSyntax(String schema) throws JaferException {
@@ -397,7 +407,7 @@ import org.w3c.dom.NodeList;
 
       if (transformNode.getNodeName().equals("serializer")) {
           try {
-            return Integer.parseInt(getValue(selectSingleNode(transformNode, "@priority")));
+            return Integer.parseInt(getNodeAttributeValue(transformNode, "priority"));
           } catch (NumberFormatException ex) {
             return Integer.MAX_VALUE;
           }
@@ -509,11 +519,11 @@ import org.w3c.dom.NodeList;
     attributeSetNodes = selectNodeList(attributeDocument, "attributeSets/attributeSet");
     for (int i = 0; i < attributeSetNodes.getLength(); i++) {
       node = attributeSetNodes.item(i);
-      name = getValue(selectSingleNode(node, "@name"));
+      name = getNodeAttributeValue(node, "name");
       Hashtable<String, Hashtable<String,String>> attributeSet = new Hashtable<String, Hashtable<String,String>>();
       attributeSets.put(name, attributeSet);
 
-      if (Boolean.valueOf(getValue(selectSingleNode(node, "@default"))).booleanValue()) {
+      if (Boolean.valueOf(getNodeAttributeValue(node, "default")).booleanValue()) {
         defaultAttributeSet = true;
         attributeSetName = name;
       } else
@@ -522,8 +532,8 @@ import org.w3c.dom.NodeList;
       attributeTypeNodes = selectNodeList(node, "attributeType");
       for (int j = 0; j < attributeTypeNodes.getLength(); j++) {
         node = attributeTypeNodes.item(j);
-        name = getValue(selectSingleNode(node, "@name"));
-        value = getValue(selectSingleNode(node, "@value"));
+        name = getNodeAttributeValue(node, "name");
+        value = getNodeAttributeValue(node, "value");
         Hashtable<String, String> attributes = new Hashtable<String, String>();
         attributeSet.put(name, attributes);
 
@@ -535,8 +545,8 @@ import org.w3c.dom.NodeList;
         attributeNodes = selectNodeList(node, "attribute");
         for (int k = 0; k < attributeNodes.getLength(); k++) {
           node = attributeNodes.item(k);
-          name = getValue(selectSingleNode(node, "@name"));
-          value = getValue(selectSingleNode(node, "@value"));
+          name = getNodeAttributeValue(node, "name");
+          value = getNodeAttributeValue(node, "value");
           attributes.put(name, value);
         }
       }
@@ -578,7 +588,7 @@ import org.w3c.dom.NodeList;
     Node node = selectSingleNode(attributeDocument, "attributeSets/attributeSet[@name='bib1']/attributeType[@name='semantic']/attribute[@value='"+attributeValue+"']");
 
     if (node != null)
-      name = getValue(selectSingleNode(node, "@name"));
+      name = getNodeAttributeValue(node, "name");
     return name;
 
   }
@@ -592,7 +602,7 @@ import org.w3c.dom.NodeList;
     Node node = selectSingleNode(attributeDocument, "attributeSets/attributeSet[@name='bib1']/attributeType[@name='relation']/attribute[@value='"+attributeValue+"']");
 
     if (node != null)
-      symbol = getValue(selectSingleNode(node, "@symbol"));
+      symbol = getNodeAttributeValue(node, "symbol");
     return symbol;
   }
 
@@ -630,11 +640,11 @@ import org.w3c.dom.NodeList;
     nodes = selectNodeList(diagnosticDocument, "bib1Diagnostics/condition");
     for (int i = 0; i < nodes.getLength(); i++) {
       node = nodes.item(i);
-      value = getValue(selectSingleNode(node, "@value"));
+      value = getNodeAttributeValue(node, "value");
       message = getValue(node);
       bib1DiagMessage.put(value, message);
-      if (getValue(selectSingleNode(node, "@addInfo")) != null) {
-        addInfo = getValue(selectSingleNode(node, "@addInfo"));
+      addInfo = getNodeAttributeValue(node, "addInfo");
+      if (addInfo != null) {
         bib1DiagAddInfo.put(value, addInfo);
       }
     }
@@ -653,8 +663,8 @@ import org.w3c.dom.NodeList;
     searchProfileNodes = selectNodeList(profileDocument, "searchProfiles/searchProfile");
     for (int i = 0; i < searchProfileNodes.getLength(); i++) {
         node = searchProfileNodes.item(i);
-        name = getValue(selectSingleNode(node, "@name"));
-        syntax = getValue(selectSingleNode(node, "@syntax"));
+        name = getNodeAttributeValue(node, "name");
+        syntax = getNodeAttributeValue(node, "syntax");
         searchProfileName.put(syntax, name);
         searchProfileSyntax.put(name, syntax);
     }
@@ -692,9 +702,23 @@ import org.w3c.dom.NodeList;
     return config.parseDocument(SERVER_CONFIG_FILE);
   }
 
+  public static Templates getServerDecodeTemplate() throws JaferException {
+	  if (serverDecode == null) {
+		  serverDecode = XMLTransformer.createTemplate(getServerDecode());
+	  }
+	  return serverDecode;
+  }
+
   public static InputStream getServerDecode() throws JaferException {
 
     return getResource(SERVER_DECODE_FILE);
+  }
+  
+  public static Templates getServerEncodeTemplate() throws JaferException {
+	  if (serverEncode == null) {
+		  serverEncode = XMLTransformer.createTemplate(getServerEncode());
+	  }
+	  return serverEncode;
   }
 
   public static InputStream getServerEncode() throws JaferException {
@@ -730,6 +754,11 @@ import org.w3c.dom.NodeList;
       }
     }
     return nodeList;
+  }
+  
+  private static String getNodeAttributeValue(Node node, String name) {
+	  Node att = node.getAttributes().getNamedItem(name);
+	  return (att == null)? null : att.getNodeValue();
   }
 
   public static Node selectSingleNode(Node node, String xPath) throws JaferException {

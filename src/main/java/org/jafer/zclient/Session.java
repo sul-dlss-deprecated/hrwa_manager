@@ -1,5 +1,7 @@
 package org.jafer.zclient;
 
+import org.jafer.record.DataObject;
+import org.jafer.record.TermRecord;
 import org.jafer.util.PDUDriver;
 import org.jafer.exception.JaferException;
 import java.util.Vector;
@@ -25,14 +27,14 @@ public interface Session {
   public void init(String group, String username, String password) throws
       ConnectionException;
 
-  public Vector present(int nRecord, int nRecords, int[] recordOID,
+  public Vector<DataObject> present(int nRecord, int nRecords, int[] recordOID,
                         String eSpec, String resultSetName) throws
       PresentException, ConnectionException;
 
-  public Vector scan(String[] databases, int nTerms, int step, int position,
+  public Vector<TermRecord> scan(String[] databases, int nTerms, int step, int position,
                      Node term) throws JaferException, ConnectionException;
 
-  public Vector scan(String[] databases, int nTerms, int step, int position,
+  public Vector<TermRecord> scan(String[] databases, int nTerms, int step, int position,
                      Object termObject) throws JaferException,
       ConnectionException;
 

@@ -33,13 +33,13 @@ package org.jafer.zclient.operations;
 
 import org.jafer.util.ConnectionException;
 
-import org.jafer.zclient.Session;
 import org.jafer.util.PDUDriver;
 import org.jafer.record.DataObject;
 import org.jafer.record.Diagnostic;
 
-import java.util.logging.Logger;
-import java.util.logging.Level;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Vector;
 
 import z3950.v3.*;
@@ -47,21 +47,17 @@ import asn1.*;
 
 public class Present {
 
-  private static Logger logger;
-  private Session session;
+  private static Logger logger = LoggerFactory.getLogger("org.jafer.zclient");
   private PDUDriver pduDriver;
 
-  public Present(Session session) {
-
-    logger = Logger.getLogger("org.jafer.zclient");
-    this.session = session;
-    this.pduDriver = session.getPDUDriver();
+  public Present(PDUDriver pduDriver) {
+    this.pduDriver = pduDriver;
   }
 
-  public  Vector present(int nRecord, int nRecords, int[] recordOID, String eSpec, String resultSetName)
+  public  Vector<DataObject> present(int nRecord, int nRecords, int[] recordOID, String eSpec, String resultSetName)
       throws PresentException, ConnectionException {
 
-    Vector dataObjects = new Vector();
+    Vector<DataObject> dataObjects = new Vector<DataObject>();
     PresentRequest pr = new PresentRequest();
 
     pr.s_resultSetId = new ResultSetId();
@@ -110,7 +106,7 @@ public class Present {
                 nr.s_record.c_surrogateDiagnostic.c_defaultFormat.ber_encode()));
               message = "Session Present (Record " + (nRecord + n) + "): " + new Diagnostic(dbName,
                 nr.s_record.c_surrogateDiagnostic.c_defaultFormat.ber_encode()).toString();
-              logger.log(Level.WARNING, message);
+              logger.warn(message);
           }
         } catch (ASN1Exception e) {
           message = "Record(s) not available: ASN1Exception processing record(s); " + e.toString();

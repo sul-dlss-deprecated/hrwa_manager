@@ -38,6 +38,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.Element;
 import org.w3c.dom.Document;
 
+import asn1.BEREncoding;
+
 /**
  * <p>getBER returns BER object from XML - if necessary, transforms to schema required by record serializer via lookup in Config class.
  * getXML returns XML from BER after transformation (via lookup in Config class) to requested schema.</p>
@@ -62,7 +64,7 @@ public class RecordFactory {
     cachedTemplates = new Hashtable<String, Templates>();
   }
 
-  public Object getBER(DataObject dataObject, Document document, int recNo) throws JaferException {
+  public BEREncoding getBER(DataObject dataObject, Document document, int recNo) throws JaferException {
 
     int[] recordSyntax;
     String serializerSchema, sourceSchema, dbName = "";
