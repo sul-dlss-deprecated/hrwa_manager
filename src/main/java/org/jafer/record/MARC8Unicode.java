@@ -701,7 +701,13 @@ public class MARC8Unicode {
 
     String message = "MARC character " + key + " (" + Integer.toHexString(c).toUpperCase() + " HEX) not found in characterSetId: " + id;
     logger.log(Level.WARNING, message);
-    return new Character(unicodeUnknown);
+    try{
+    throw new JaferException(message);
+    } catch (JaferException e) {
+    	e.printStackTrace();
+    	throw e;
+    }
+    //return new Character(unicodeUnknown);
   }
 
 
