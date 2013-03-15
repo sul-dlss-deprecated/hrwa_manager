@@ -219,20 +219,19 @@ public class RecordFactory {
     return recordObject;
   }
 
-  private Node transformRecord(Node recordNode, int[] recordSyntax, String requestedRecordSchema, boolean fromSerializer) throws JaferException {
+  private static Node transformRecord(Node recordNode, int[] recordSyntax, String requestedRecordSchema, boolean fromSerializer) throws JaferException {
 
-    String styleSheet;
     URL resource;
     Templates template;
-    Vector<String> transforms;
     Hashtable<String, Templates>  map = templatesMap.get(Boolean.valueOf(fromSerializer));
 
-    transforms = Config.getTransforms(fromSerializer, Config.convertSyntax(recordSyntax), requestedRecordSchema);
-    for (int i = 0; i < transforms.size(); i++) {
-        styleSheet = transforms.get(i);
-        if (!map.containsKey(styleSheet)) {// lookup in hashtable
+    Vector<String> transforms = Config.getTransforms(fromSerializer, Config.convertSyntax(recordSyntax), requestedRecordSchema);
+
+    for (String styleSheet: transforms) {
+    	template = (Templates)map.get(styleSheet);
+        if (template == null) {// lookup in hashtable
           try {
-            resource =  this.getClass().getClassLoader().getResource(styleSheet);
+            resource =  RecordFactory.class.getClassLoader().getResource(styleSheet);
             template = XMLTransformer.createTemplate(resource);
             map.put(styleSheet, template);
           } catch (Exception e) {
@@ -240,9 +239,10 @@ public class RecordFactory {
           }
         }
 
-        template = (Templates)map.get(styleSheet);
+        
  // ZClient version
       recordNode = XMLTransformer.transform(recordNode, template);
+      break; // just do the first one
     }
     return recordNode;
   }
