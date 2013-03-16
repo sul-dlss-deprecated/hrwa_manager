@@ -108,7 +108,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 				" WHERE" +
 				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id >= " + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed +
 				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id < " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + HrwaManager.mySQLToSolrRowRetrievalSize) +
-				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN ('DOCUMENT', 'HTML', 'PDF', 'SLIDESHOW', 'SPREADSHEET', 'XML')" +
+				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE +
 				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "." + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "'"
 			);
 			ResultSet resultSet = pstmt1.executeQuery();
@@ -216,7 +216,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 						" WHERE" +
 						" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id >= " + currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed +
 						" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id < " + (currentStartingRecordIdForMySQLArchiveRecordRowsBeingProcessed + HrwaManager.mySQLToSolrRowRetrievalSize) +
-						" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN ('DOCUMENT', 'HTML', 'PDF', 'SLIDESHOW', 'SPREADSHEET', 'XML')" +
+						" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE +
 						" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "." + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "'"; 
 				
 				System.out.println(query);
@@ -226,7 +226,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 				pstmt1.execute();
 				
 				pstmt1.close();
-				conn.commit();
+				//conn.commit(); No need to call commit because auto-commit == true
 		        conn.close();
 	        
 			} catch (SQLException e) {

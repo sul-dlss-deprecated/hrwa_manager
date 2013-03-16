@@ -38,24 +38,6 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 	
 	public void runTask() {
 		
-//		try {
-//			InputStream stream = this.getClass().getClassLoader().getResourceAsStream("org/jafer/xsl/OAIMARC2MARC21slim.xsl");
-//			System.out.println("Found stream? " + stream);
-//			
-//			StringWriter writer = new StringWriter();
-//			IOUtils.copy(stream, writer, "UTF-8");
-//			System.out.println("Content: " + writer.toString());
-//			Document document = DOMFactory.parse(stream);
-//			System.out.println("Document text content: " + document.getTextContent());
-//			stream.close();
-//		} catch (IOException e3) {
-//			// TODO Auto-generated catch block
-//			e3.printStackTrace();
-//		} catch (JaferException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-		
 		writeTaskHeaderMessageAndSetStartTime();
 		
 		//Create sites table if necessary.  Also related hosts table.

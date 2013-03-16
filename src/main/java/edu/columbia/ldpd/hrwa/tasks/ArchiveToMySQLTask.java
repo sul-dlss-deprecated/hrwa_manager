@@ -149,9 +149,9 @@ public class ArchiveToMySQLTask extends HrwaTask {
 				try {
 					Thread.sleep(100);
 					//System.out.println("Sleeping for X ms because no threads are available for processing...");
-					//if(HrwaManager.verbose) {
+					if(HrwaManager.verbose) {
 						System.out.println("HrwaManager ArchiveToMySQL Task is sleeping for 100 ms because memory usage is currently too high to concurrently start processing an additional file.  Waiting until usage is lower... (Current memory usage: " + HrwaManager.bytesToMegabytes(currentMemoryUsage) + " MB)");
-					//}
+					}
 				}
 				catch (InterruptedException e) { e.printStackTrace(); }
 				
@@ -176,9 +176,9 @@ public class ArchiveToMySQLTask extends HrwaTask {
 				
 				try {
 					Thread.sleep(100);
-					//if(HrwaManager.verbose) {
+					if(HrwaManager.verbose) {
 						System.out.println("HrwaManager ArchiveToMySQL Task is sleeping for 100 ms because no threads are currently available for processing...");
-					//}
+					}
 				}
 				catch (InterruptedException e) { e.printStackTrace(); }
 			}
