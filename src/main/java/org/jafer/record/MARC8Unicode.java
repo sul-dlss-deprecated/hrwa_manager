@@ -95,7 +95,8 @@ public class MARC8Unicode {
   private boolean pageG0 = false;
   private boolean pageG1 = false;
 
-  private static Hashtable characterSetsMap, marcKeyCharacterSets, unicodeKeyCharacterSets;
+  private static Hashtable<String, String> characterSetsMap;
+  private static Hashtable marcKeyCharacterSets, unicodeKeyCharacterSets;
   private static Logger logger;
   private final char marc8Unknown, unicodeUnknown;
   private String G0PageId, G1PageId, currentG0PageId, currentG1PageId, controlPageId;
@@ -119,19 +120,7 @@ public class MARC8Unicode {
 /** @todo subfield $6 (linkage) gives info on field orientation - orientation not yet implemented*/
 
   public MARC8Unicode() {
-
-    marc8Unknown = MARC8_UNKNOWN;
-    unicodeUnknown = UNICODE_UNKNOWN;
-    buildLookUpList();
-    try {
-      setControlPage(CONTROL);
-    } catch (JaferException ex) {
-      String message = "Cannot load controlFunction characterSet: " + Config.CHARACTER_SETS_FILE;
-      logger.log(Level.SEVERE, message, ex);
-      System.err.print("FATAL: " + message + " - Could not initialize class MARC8Unicode");
-      ex.printStackTrace(System.err);
-      System.exit(-1);
-    }
+    this(MARC8_UNKNOWN, UNICODE_UNKNOWN);
   }
 
   public MARC8Unicode(char marc8Unknown, char unicodeUnknown) {
@@ -154,7 +143,6 @@ public class MARC8Unicode {
 
     StringBuffer out = new StringBuffer();
     StringBuffer diac = new StringBuffer();
-    StringBuffer multi = new StringBuffer();
 
     setCurrentG0PageId(ASCII_TYPE_1);
     setCurrentG1PageId(ANSEL);
@@ -167,7 +155,7 @@ public class MARC8Unicode {
         diac.append(c[0]);
       } else {
         if (!isBufferEmpty(diac))
-          diac = emptyBuffer(diac, out, -1);
+          emptyBuffer(diac, out, -1);
         if (isNewPage())
           out.append(getPageESCSequence());
         out.append(c);
@@ -197,7 +185,8 @@ public class MARC8Unicode {
     setMultiByte(false);
 
     int c = 0;
-    for (int n = 0; n < marc8.length(); n++) {
+    int stop = marc8.length();
+    for (int n = 0; n < stop; n++) {
       c = marc8.charAt(n);
 
       if (isESCChar(c)) {
@@ -236,7 +225,7 @@ public class MARC8Unicode {
 
       } else {
         if (isMultiByte())
-          multi = appendMultiByte(c, multi, out);// assume diactritic not associated with multibyte character
+          appendMultiByte(c, multi, out);// assume diactritic not associated with multibyte character
         else if (isDiacritic(c))
           diac.append(getUnicodeCharacter(c));
         else {
@@ -245,7 +234,7 @@ public class MARC8Unicode {
 //          else
             out.append(getUnicodeCharacter(c));
           if (!isBufferEmpty(diac))
-            diac = emptyBuffer(diac, out, 0);
+            emptyBuffer(diac, out, 0);
         }
       }
     }
@@ -255,7 +244,7 @@ public class MARC8Unicode {
   private static void loadCharacterSetsMap() throws JaferException {
 
     String id, file;
-    characterSetsMap = new Hashtable();
+    characterSetsMap = new Hashtable<String, String>();
     Element e;
     Document document = Config.getCharacterSetsMap();
     NodeList list = Config.selectNodeList(document, "characterSets/graphicCharacterSet");
@@ -279,10 +268,19 @@ public class MARC8Unicode {
 
   private Hashtable getCharacterSet(String key, boolean marcKey) throws JaferException {
 
-    if (!characterSetsMap.containsKey(key)) {
+	if (!characterSetsMap.containsKey(key)) {
       String message = "Error looking up characterSet - " + key + "(HEX) not recognised as characterSet code";
       logger.log(Level.WARNING, message);
       throw new JaferException(message);
+    }
+    
+    if (marcKey && marcKeyCharacterSets.containsKey(key)){
+    	System.out.println("Cached MARC charset");
+    	return (Hashtable) marcKeyCharacterSets.get(key);
+    }
+    if (!marcKey && unicodeKeyCharacterSets.containsKey(key)) {
+    	System.out.println("Cached Unicode charset");
+    	return (Hashtable) unicodeKeyCharacterSets.get(key);
     }
 
     Hashtable characterSet = new Hashtable();
@@ -552,10 +550,10 @@ public class MARC8Unicode {
     return buffer.length() < 1;
   }
 
-  private StringBuffer emptyBuffer(StringBuffer bufferIn, StringBuffer bufferOut, int offset) {
+  private void emptyBuffer(StringBuffer bufferIn, StringBuffer bufferOut, int offset) {
 
     bufferOut.insert(bufferOut.length() + offset, bufferIn.toString());
-    return new StringBuffer();
+    bufferIn.setLength(0);
   }
 
   private boolean isNewPage() {
@@ -650,22 +648,29 @@ public class MARC8Unicode {
     throw new JaferException(message);
   }
 
-  char[] toMultiByte(String multiByteHexValue) {
+  char[] toMultiByte(String src) {
 
     char[] c = new char[3];
-    for (int n = 0; n < 3; n++)
-      c[n] = (char)Integer.parseInt(multiByteHexValue.substring(n*2, n*2 + 2), 16);
+    c[0] = (char)(Character.digit(src.charAt(0),16)*16 + Character.digit(src.charAt(1),16));
+    c[1] = (char)(Character.digit(src.charAt(2),16)*16 + Character.digit(src.charAt(3),16));
+    c[2] = (char)(Character.digit(src.charAt(4),16)*16 + Character.digit(src.charAt(5),16));
     return c;
   }
 
-  private StringBuffer appendMultiByte(int c, StringBuffer bufferIn, StringBuffer bufferOut) throws JaferException {
+  /**
+   * Appends multibytes until there are 3, then drains the buffer
+   * @param c
+   * @param bufferIn
+   * @param bufferOut
+   * @throws JaferException
+   */
+  private void appendMultiByte(int c, StringBuffer bufferIn, StringBuffer bufferOut) throws JaferException {
 
     bufferIn.append(Integer.toHexString(c));
     if (bufferIn.length() == 6) {
       bufferOut.append(getEACCCharacter(bufferIn.toString()));
-      return new StringBuffer();
+      bufferIn.setLength(0);
     }
-    return bufferIn;
   }
 
   private Character getEACCCharacter(String hexValue) throws JaferException {
@@ -701,7 +706,13 @@ public class MARC8Unicode {
 
     String message = "MARC character " + key + " (" + Integer.toHexString(c).toUpperCase() + " HEX) not found in characterSetId: " + id;
     logger.log(Level.WARNING, message);
-    return new Character(unicodeUnknown);
+    try{
+    throw new JaferException(message);
+    } catch (JaferException e) {
+    	e.printStackTrace();
+    	throw e;
+    }
+    //return new Character(unicodeUnknown);
   }
 
 

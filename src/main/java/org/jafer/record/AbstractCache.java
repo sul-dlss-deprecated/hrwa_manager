@@ -3,6 +3,9 @@ package org.jafer.record;
 import org.w3c.dom.Node;
 import org.w3c.dom.Document;
 import org.jafer.exception.JaferException;
+
+import asn1.BEREncoding;
+
 import java.util.Map;
 import java.util.logging.Logger;
 import java.util.TreeMap;
@@ -10,14 +13,14 @@ import java.util.logging.Level;
 
 public class AbstractCache {
 
-  protected Map xmlCache;
-  protected Map berCache;
-  protected Map dataCache;
+  protected Map<Integer, Node> xmlCache;
+  protected Map<Integer, BEREncoding> berCache;
+  protected Map<Integer, DataObject> dataCache;
   protected int dataCacheSize;
   protected static Logger logger = Logger.getLogger("org.jafer.zclient");
 
   protected RecordFactory recordFactory;
-  protected TreeMap dataTimeStamp;
+  protected TreeMap<Long, Integer> dataTimeStamp;
   public double clear = 0.2; // allow user to set this ?
 
   private AbstractCache() {
@@ -26,7 +29,7 @@ public class AbstractCache {
   protected AbstractCache(RecordFactory recordFactory, int dataCacheSize) {
     this.dataCacheSize = dataCacheSize;
     this.recordFactory = recordFactory;
-    dataTimeStamp = new TreeMap();
+    dataTimeStamp = new TreeMap<Long, Integer>();
   }
 
 
@@ -61,7 +64,7 @@ public class AbstractCache {
     if (contains(recNo)) {
       if (!berCache.containsKey(recNo)) {
         DataObject dataObject = (DataObject) dataCache.get(recNo);
-        Object ber = recordFactory.getBER(dataObject, document, recNo.intValue());
+        BEREncoding ber = recordFactory.getBER(dataObject, document, recNo.intValue());
         berCache.put(recNo, ber);
       }
       return berCache.get(recNo);

@@ -36,13 +36,13 @@ import org.jafer.util.ConnectionException;
 import org.jafer.exception.JaferException;
 import org.jafer.zclient.operations.*;
 import org.jafer.util.PDUDriver;
+import org.jafer.record.DataObject;
 import org.jafer.record.TermRecord;
 
-import java.util.logging.Logger;
-import java.util.logging.Level;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Vector;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.InetSocketAddress;
@@ -60,9 +60,12 @@ import org.w3c.dom.Node;
 public class ZSession
     implements Session {
 
-  private static Logger logger;
+  private static Logger logger = LoggerFactory.getLogger("org.jafer.zclient");
   private static int sessionId = 0;
   private PDUDriver pduDriver;
+  private Present present; // assuming there's not a thread-safety issue, but it would show up with PDUDriver anyway
+  private Scan scan; // assuming there's not a thread-safety issue, but it would show up with PDUDriver anyway
+  private Search search; // assuming there's not a thread-safety issue, but it would show up with PDUDriver anyway
   private Socket socket;
   private String name, host, group, username, password, targetInfo = "Z39.50 server";
   private int port, timeout, targetVersion = 0;
@@ -84,8 +87,7 @@ public class ZSession
 
   public ZSession(String host, int port, int timeout) {
 
-    this.logger = Logger.getLogger("org.jafer.zclient");
-    this.sessionId++;
+    sessionId++; // this is incredibly un-threadsafe
     this.host = host;
     this.port = port;
     this.timeout = timeout;
@@ -100,22 +102,22 @@ public class ZSession
       socket.connect(sAdd, SOCKET_CONNECT_TIMEOUT);
       setPDUDriver(new PDUDriver(getName(), socket, timeout));
       message = getName() + " connected to " + host + " on port " + port;
-      logger.log(Level.FINE, message);
+      logger.debug(message);
     } catch (java.net.UnknownHostException e) {
       message = getName() + " error starting session: Unknown host " + host;
-      logger.log(Level.WARNING, message);
+      logger.warn(message);
       throw new ConnectionException(message, e);
     } catch (java.lang.SecurityException e) {
       message = getName() + " error starting session: Security error " + "(" + e.toString() + ")";
-      logger.log(Level.WARNING, message);
+      logger.warn(message);
       throw new ConnectionException(message, e);
     } catch (java.lang.NullPointerException e) {
       message = getName() + " error starting session: host (" + host + ") or port (" + port + ") not found";
-      logger.log(Level.WARNING, message);
+      logger.warn(message);
       throw new ConnectionException(message, e);
     } catch (IOException e) {
       message = getName() + " error starting session: IOException (" + e.toString() + ")";
-      logger.log(Level.WARNING, message);
+      logger.warn(message);
       throw new ConnectionException(message, e);
     }
   }
@@ -130,9 +132,9 @@ public class ZSession
       init.init(this.group, this.username, this.password);
       targetVersion = init.getTargetVersion();
       targetInfo = init.getTargetInfo();
-      logger.log(Level.INFO, getName() + " established with host on port " + port + "\n" + targetInfo);
+      logger.info(getName() + " established with host on port " + port + "\n" + targetInfo);
     } catch (ConnectionException e) {
-      logger.log(Level.WARNING, getName() + " " + e.getMessage() + " - cannot connect to target " + init.getTargetInfo());
+      logger.warn(getName() + " " + e.getMessage() + " - cannot connect to target " + init.getTargetInfo());
       throw e;
     }
   }
@@ -144,9 +146,9 @@ public class ZSession
         pduDriver.initClose(0);
       if (socket != null)
         socket.close();
-      logger.log(Level.INFO, getName() + " closed connection to " + targetInfo);
+      logger.info(" closed connection to ", getName(), targetInfo);
     } catch (Exception e) {
-      logger.log(Level.WARNING, getName() + " error attempting to close session " + "(" + e.toString() + ")");
+      logger.warn(getName() + "{} error attempting to close session " + "({})", getName(), e.toString());
     }
   }
 
@@ -159,32 +161,30 @@ public class ZSession
 
   public int[] search(Object queryObject, String[] databases, String resultSetName)
                                   throws JaferException, ConnectionException {
-
-    Search search = new Search(this);
     return search.search(queryObject, databases, resultSetName);
   }
 
-  public  Vector present(int nRecord, int nRecords, int[] recordOID, String eSpec, String resultSetName)
+  public  Vector<DataObject> present(int nRecord, int nRecords, int[] recordOID, String eSpec, String resultSetName)
                                       throws PresentException, ConnectionException {
 
-    Present present = new Present(this);
     return present.present(nRecord, nRecords, recordOID, eSpec, resultSetName);
   }
 
-  public Vector scan(String[] databases, int nTerms, int step, int position, Node term) throws JaferException, ConnectionException {
+  public Vector<TermRecord> scan(String[] databases, int nTerms, int step, int position, Node term) throws JaferException, ConnectionException {
 
-    Scan scan = new Scan(this);
     return scan.scan(databases, nTerms, step, position, term);
   }
 
-  public Vector scan(String[] databases, int nTerms, int step, int position, Object termObject) throws JaferException, ConnectionException {
+  public Vector<TermRecord> scan(String[] databases, int nTerms, int step, int position, Object termObject) throws JaferException, ConnectionException {
 
-    Scan scan = new Scan(this);
     return scan.scan(databases, nTerms, step,  position, termObject);
   }
 
   public void setPDUDriver(PDUDriver pduDriver) {
     this.pduDriver = pduDriver;
+    this.present = new Present(pduDriver);
+    this.scan = new Scan(pduDriver);
+    this.search = new Search(pduDriver);
   }
 
   public PDUDriver getPDUDriver() {

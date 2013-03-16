@@ -38,6 +38,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.Element;
 import org.w3c.dom.Document;
 
+import asn1.BEREncoding;
+
 /**
  * <p>getBER returns BER object from XML - if necessary, transforms to schema required by record serializer via lookup in Config class.
  * getXML returns XML from BER after transformation (via lookup in Config class) to requested schema.</p>
@@ -62,7 +64,7 @@ public class RecordFactory {
     cachedTemplates = new Hashtable<String, Templates>();
   }
 
-  public Object getBER(DataObject dataObject, Document document, int recNo) throws JaferException {
+  public BEREncoding getBER(DataObject dataObject, Document document, int recNo) throws JaferException {
 
     int[] recordSyntax;
     String serializerSchema, sourceSchema, dbName = "";
@@ -217,20 +219,19 @@ public class RecordFactory {
     return recordObject;
   }
 
-  private Node transformRecord(Node recordNode, int[] recordSyntax, String requestedRecordSchema, boolean fromSerializer) throws JaferException {
+  private static Node transformRecord(Node recordNode, int[] recordSyntax, String requestedRecordSchema, boolean fromSerializer) throws JaferException {
 
-    String styleSheet;
     URL resource;
     Templates template;
-    Vector<String> transforms;
     Hashtable<String, Templates>  map = templatesMap.get(Boolean.valueOf(fromSerializer));
 
-    transforms = Config.getTransforms(fromSerializer, Config.convertSyntax(recordSyntax), requestedRecordSchema);
-    for (int i = 0; i < transforms.size(); i++) {
-        styleSheet = transforms.get(i);
-        if (!map.containsKey(styleSheet)) {// lookup in hashtable
+    Vector<String> transforms = Config.getTransforms(fromSerializer, Config.convertSyntax(recordSyntax), requestedRecordSchema);
+
+    for (String styleSheet: transforms) {
+    	template = (Templates)map.get(styleSheet);
+        if (template == null) {// lookup in hashtable
           try {
-            resource =  this.getClass().getClassLoader().getResource(styleSheet);
+            resource =  RecordFactory.class.getClassLoader().getResource(styleSheet);
             template = XMLTransformer.createTemplate(resource);
             map.put(styleSheet, template);
           } catch (Exception e) {
@@ -238,9 +239,10 @@ public class RecordFactory {
           }
         }
 
-        template = (Templates)map.get(styleSheet);
+        
  // ZClient version
       recordNode = XMLTransformer.transform(recordNode, template);
+      break; // just do the first one
     }
     return recordNode;
   }

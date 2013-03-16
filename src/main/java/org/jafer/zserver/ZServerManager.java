@@ -250,7 +250,7 @@ public class ZServerManager {
     toXml.close();
     Document xml = DOMFactory.parse(new ByteArrayInputStream(out.toByteArray()));
     XMLSerializer.out(
-        XMLTransformer.transform(xml.getFirstChild(), Config.getServerDecode()), "xml", path);
+        XMLTransformer.transform(xml.getFirstChild(), Config.getServerDecodeTemplate()), "xml", path);
   }
 
   private void loadManager(Document document) throws JaferException {
@@ -258,7 +258,7 @@ public class ZServerManager {
     logger.log(Level.INFO, "JAFER Server Manager 1.00 copyright 2002, JAFER Project (http://www.jafer.org)");
 
     Node xmlIn = document.getDocumentElement();
-    Node xml = XMLTransformer.transform(xmlIn, Config.getServerDecode());
+    Node xml = XMLTransformer.transform(xmlIn, Config.getServerDecodeTemplate());
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     XMLSerializer.out(xml, "xml", out);
     XMLDecoder fromXml = new XMLDecoder(new ByteArrayInputStream(out.toByteArray()));

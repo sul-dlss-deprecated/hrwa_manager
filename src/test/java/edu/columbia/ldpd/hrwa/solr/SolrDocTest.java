@@ -62,7 +62,7 @@ public class SolrDocTest {
         InputStream ais = new FileInputStream(aFile);
         String actual = readString(ais);
         String expected = readString(eis);
-        assertEquals(actual, expected);
+        assertEquals(actual + "\n**WAS NOT EQUAL TO:**\n" + expected, actual, expected);
     }
 
     private String readString(InputStream in) throws IOException {

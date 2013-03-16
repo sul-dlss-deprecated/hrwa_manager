@@ -20,6 +20,7 @@
 package org.jafer.util.xml;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
 import java.net.URL;
@@ -27,7 +28,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
-import java.util.logging.Logger;
 
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -36,6 +36,10 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamSource;
 
 import org.jafer.exception.JaferException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.w3c.dom.Node;
 
 /**
@@ -47,11 +51,9 @@ import org.w3c.dom.Node;
  */
 public class XMLSerializer {
 
-  private static Logger logger;
-
-  static {
-    logger = Logger.getLogger("org.jafer.util");
-  }
+  private static Logger logger = LoggerFactory.getLogger("org.jafer.util");
+  
+  private static TransformerFactory tFactory = TransformerFactory.newInstance();
 
   public static void out(Node node, boolean omitXMLDeclaration, OutputStream stream) throws JaferException {
 
@@ -104,19 +106,19 @@ public class XMLSerializer {
     transformOutput(sourceNode, stylesheet, getFileOutputStream(filePath));
   }
 
-  public static void transformOutput(Node sourceNode, URL stylesheet, Map parameters, OutputStream stream) throws JaferException {
+  public static void transformOutput(Node sourceNode, URL stylesheet, Map<String,?> parameters, OutputStream stream) throws JaferException {
 
     Transformer transformer = getTransformer(stylesheet, parameters);
     XMLTransformer.transform(sourceNode, transformer, stream);
   }
 
-  public static void transformOutput(Node sourceNode, URL stylesheet, Map parameters, Writer writer) throws JaferException {
+  public static void transformOutput(Node sourceNode, URL stylesheet, Map<String,?> parameters, Writer writer) throws JaferException {
 
     Transformer transformer = getTransformer(stylesheet, parameters);
     XMLTransformer.transform(sourceNode, transformer, writer);
   }
 
-  public static void transformOutput(Node sourceNode, URL stylesheet, Map parameters, String filePath) throws JaferException {
+  public static void transformOutput(Node sourceNode, URL stylesheet, Map<String,?> parameters, String filePath) throws JaferException {
 
     transformOutput(sourceNode, stylesheet, parameters, getFileOutputStream(filePath));
   }
@@ -161,41 +163,42 @@ public class XMLSerializer {
   }
 
   private static Transformer getTransformer() throws JaferException {
-/** @todo should these 2 getTransformer() methods share a factory instance? */
-    try {
-      TransformerFactory tFactory = TransformerFactory.newInstance();
-      Transformer transformer = tFactory.newTransformer();
-      transformer.setErrorListener(new org.jafer.util.xml.ErrorListener());
-      return transformer;
-    }
-    catch (TransformerConfigurationException e) {
-      String message = "XMLSerializer (Error in transformation/serialization)";
-      logger.severe(message);
-      throw new JaferException(message, e);
-    }
+    return getTransformer((InputStream)null);
   }
 
   private static Transformer getTransformer(URL stylesheet) throws JaferException {
 
     try {
-      TransformerFactory tFactory = TransformerFactory.newInstance();
-      Transformer transformer = tFactory.newTransformer(new StreamSource(stylesheet.getFile()));
-      transformer.setErrorListener(new org.jafer.util.xml.ErrorListener());
-      return transformer;
+      return getTransformer(stylesheet.openStream());
     }
-    catch (TransformerConfigurationException e) {
-      String message = "XMLSerializer (Error in transformation: " + stylesheet + ") " + e.toString();
-      logger.severe(message);
-      throw new JaferException(message, e);
-    }
+    catch (IOException e) {
+      logger.error("XMLSerializer (Error in transformation: {})", stylesheet, e);
+      throw new JaferException(e.getMessage(), e);
+	}
   }
 
-  private static Transformer getTransformer(URL stylesheet, Map parameters) throws JaferException {
+  private static Transformer getTransformer(InputStream stylesheet) throws JaferException {
+
+	    try {
+	    	Transformer transformer;
+	    	synchronized(tFactory) {
+	    		transformer = (stylesheet == null) ? tFactory.newTransformer() : tFactory.newTransformer(new StreamSource(stylesheet));
+	    	}
+	    	transformer.setErrorListener(new org.jafer.util.xml.ErrorListener());
+	    	return transformer;
+	    }
+	    catch (TransformerConfigurationException e) {
+	        logger.error("XMLSerializer (Error in transformation: {})", stylesheet, e);
+	        throw new JaferException(e.getMessage(), e);
+	    }
+	  }
+
+  private static Transformer getTransformer(URL stylesheet, Map<String, ?> parameters) throws JaferException {
 
     Transformer transformer = getTransformer(stylesheet);
-    Iterator keys = parameters.keySet().iterator();
+    Iterator<String> keys = parameters.keySet().iterator();
     while (keys.hasNext()) {
-      String param = (String)keys.next();
+      String param = keys.next();
       transformer.setParameter(param, parameters.get(param));
     }
     return transformer;
@@ -214,9 +217,8 @@ public class XMLSerializer {
       return new FileOutputStream(filePath);
     }
     catch (IOException e) {
-      String message = "Error in serializing output: (I/O error with path: " + filePath + ")";
-      logger.severe(message);
-      throw new JaferException(message, e);
+        logger.error("XMLSerializer (Error in transformation: {})", filePath, e);
+        throw new JaferException(e.getMessage(), e);
     }
   }
 }

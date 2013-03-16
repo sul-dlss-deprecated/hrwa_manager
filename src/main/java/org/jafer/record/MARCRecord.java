@@ -35,6 +35,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 import org.jafer.conf.Config;
@@ -67,7 +68,9 @@ public class MARCRecord extends DataObject {
   private static final char UTF8_ENCODING      = (char)0x61;
 
   public static final String MARC8 = "US-ASCII";
+  public static final Charset MARC8_CHARSET = Charset.forName("ISO-8859-1");
   public static final String UTF8  = "UTF-8";
+  public static final Charset UTF8_CHARSET  = Charset.forName(UTF8);
   public static final String OAI_NAMESPACE     = "http://www.openarchives.org/OAI/1.1/oai_marc";
   public static final String[] OAI_ATTRIBUTE_NAMES = new String[] {
     /*  5   optional */ "status",
@@ -83,7 +86,7 @@ public class MARCRecord extends DataObject {
   private Node root;
   private BEREncoding ber;
   private final MARC8Unicode marc8Unicode;
-  private char encoding;
+  private Charset encoding;
 
   public MARCRecord(String dbName, BEREncoding ber) {
 
@@ -101,20 +104,20 @@ public class MARCRecord extends DataObject {
 
   private void setEncoding(String encoding) {
 
-    this.encoding = encoding.equalsIgnoreCase(UTF8) ? UTF8_ENCODING : MARC8_ENCODING;
+    this.encoding = encoding.equalsIgnoreCase(UTF8) ? UTF8_CHARSET : MARC8_CHARSET;
   }
 
   private void setEncoding(char encoding) {
 
-    this.encoding = encoding;
+    this.encoding = (encoding == UTF8_ENCODING )? UTF8_CHARSET : MARC8_CHARSET;
   }
 
   private String getEncodingAsString() {
 
-    return getEncoding() == UTF8_ENCODING ? UTF8 : MARC8;
+    return getEncoding() == UTF8_CHARSET ? UTF8 : MARC8;
   }
 
-  private char getEncoding() {
+  private Charset getEncoding() {
 
     return encoding;
   }
@@ -149,7 +152,9 @@ public Node getXML(Document document) throws RecordException {
       asn1External = new ASN1External(this.ber, true);
       byte[] bytes = asn1External.c_octetAligned.get_bytes();
       setEncoding((char)bytes[9]);
-      int recordLength = getInt(bytes, 0, 5); // is there a way to encode this? Would be preferable for the leaders to match more closely.
+      // is there a way to encode this? Would be preferable for the leaders to match more closely.
+      //regardless, it's not used
+      //int recordLength = getInt(bytes, 0, 5);
       int baseAddress = getInt(bytes, 12, 5);
       int numFields = (baseAddress - 1 - 24) / 12;
 
@@ -157,7 +162,7 @@ public Node getXML(Document document) throws RecordException {
           // this must include blank (' '/x20/32) values, or the fixed length leader field will be incorrect
         if (getOAIAttributeName(i) != "") {
 //            ((Element)root).setAttributeNS(OAI_NAMESPACE, getOAIAttributeName(i), getString(bytes, i, 1));
-            ((Element)root).setAttribute(getOAIAttributeName(i), getString(bytes, i, 1));
+            ((Element)root).setAttribute(getOAIAttributeName(i), getString(bytes, i, 1, getEncoding()));
         }
       }
       //((Element)root).setAttribute(getOAIAttributeName(17), "#");
@@ -182,37 +187,96 @@ public Node getXML(Document document) throws RecordException {
 
     return root;
   }
-
+  
   private void processRecord(Document document, byte[] bytes, int baseAddress, int numFields) throws IOException, JaferException {
 
-    ByteArrayInputStream byteIn = null;
-    Node field;
+	    Node field;
+        int limit = numFields * 12 + 24;
+	    for (int offset = 24; offset < limit; offset += 12) {
 
-    for (int i = 0; i < numFields; i++) {
+	      int len = getInt(bytes, offset + 3, 4) - 1;
+	      int start = getInt(bytes, offset + 7, 5) + baseAddress;
+	      String tag = getJavaIdentifierTag(getString(bytes, offset, 3, getEncoding()));
 
-      int offset = i * 12 + 24;
-      int len = getInt(bytes, offset + 3, 4);
-      int start = getInt(bytes, offset + 7, 5);
-      String tag = getJavaIdentifierTag(getString(bytes, offset, 3));
-      byteIn = new ByteArrayInputStream(bytes,
-                    baseAddress + start, len - 1);
-
-      if (Integer.parseInt(tag) < 10)
-        field = document.createElementNS(OAI_NAMESPACE, "fixfield");
-//	field = document.createElement("fixfield");
-      else
-        field = document.createElementNS(OAI_NAMESPACE, "varfield");
-//	field = document.createElement("varfield");
-
-//      ((Element)field).setAttributeNS(OAI_NAMESPACE, "id", tag);
-      ((Element)field).setAttribute("id", tag);
-      processField(document, field, byteIn);
-      root.appendChild(field);
-      byteIn.close();
-    }
+	      if (Integer.parseInt(tag) < 10){
+	    	  field = document.createElementNS(OAI_NAMESPACE, "fixfield");
+	      }
+	      else{
+	    	  field = document.createElementNS(OAI_NAMESPACE, "varfield");
+	      }
+	      ((Element)field).setAttribute("id", tag);
+	      processField(document, field, bytes, start, len, getEncoding());
+	      root.appendChild(field);
+	    }
   }
+  
+  private void processRecordStream(Document document, byte[] bytes, int baseAddress, int numFields) throws IOException, JaferException {
 
-  private void processField(Document document, Node field, ByteArrayInputStream byteIn) throws IOException, JaferException {
+	    ByteArrayInputStream byteIn = null;
+	    Node field;
+
+	    for (int i = 0; i < numFields; i++) {
+
+	      int offset = i * 12 + 24;
+	      int len = getInt(bytes, offset + 3, 4);
+	      int start = getInt(bytes, offset + 7, 5);
+	      String tag = getJavaIdentifierTag(getString(bytes, offset, 3, getEncoding()));
+	      byteIn = new ByteArrayInputStream(bytes,
+	                    baseAddress + start, len - 1);
+
+	      if (Integer.parseInt(tag) < 10){
+	    	  field = document.createElementNS(OAI_NAMESPACE, "fixfield");
+	      }
+	      else{
+	    	  field = document.createElementNS(OAI_NAMESPACE, "varfield");
+	      }
+	      ((Element)field).setAttribute("id", tag);
+	      processField(document, field, byteIn, getEncoding());
+	      root.appendChild(field);
+	      byteIn.close();
+	    }
+	  }
+  
+  static void processField(Document document, Node field, byte[] byteIn, Charset encoding) throws IOException, JaferException {
+	  processField(document, field, byteIn, 0, byteIn.length, encoding);
+  }
+  
+  static void processField(Document document, Node field, byte[] byteIn, int start, int length, Charset encoding) throws IOException, JaferException {
+	    String ind1 = null, ind2 = null;
+
+	    int pos = start;
+	    int stop =  Math.min(start + length, byteIn.length); // emulates the ByteArrayInputstream behavior
+	    for(int i = start; i<stop; i++) {
+          byte b = byteIn[i];
+	      if(b == SUBFIELD_DELIMITER) {
+
+	        if(ind1 == null && ind2 == null) {
+	          ind1 = getString(byteIn, start, 1, encoding);
+	          ind2 = getString(byteIn, start+1, 1, encoding);
+	        }
+	        else {
+	        	int len = i - pos;
+	        	field.appendChild(getSubFieldElement(document, byteIn, pos, len, encoding));
+	        }
+	        pos = i+1;
+	      }
+	    }
+
+	    if(ind1 != null && ind2 != null) {
+//	    	System.out.print(((Element)field).getLocalName() + "@id=\"" + ((Element)field).getAttribute("id") + "\", @ind1=" + ind1 + ", @ind2=" + ind2 + ", content=\"");
+//	    	System.out.println(new String(byteIn, pos, stop - pos) + "\"");
+	    	field.appendChild(getSubFieldElement(document, byteIn, pos, stop - pos, encoding));
+	    	((Element)field).setAttribute("i1", ind1);
+	    	((Element)field).setAttribute("i2", ind2);
+	    }
+	    else {
+//	    	System.out.print(((Element)field).getLocalName() + "@id=\"" + ((Element)field).getAttribute("id") + "\", @ind1=" + ind1 + ", @ind2=" + ind2 + ", content=\"");
+//	    	System.out.println(new String(byteIn, start, length) + "\"");
+	    	field.appendChild(document.createTextNode("\""+getString(byteIn, start, length, encoding)+"\""));
+	    }
+	  }
+
+  static void processField(Document document, Node field, ByteArrayInputStream byteIn, Charset encoding) throws IOException, JaferException {
 
     ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
     String ind1 = null, ind2 = null;
@@ -223,34 +287,39 @@ public Node getXML(Document document) throws RecordException {
       if(b == SUBFIELD_DELIMITER) {
 
         if(ind1 == null && ind2 == null) {
-          ind1 = getString(byteOut, 0, 1);
-          ind2 = getString(byteOut, 1, 1);
+          ind1 = getString(byteOut, 0, 1, encoding);
+          ind2 = getString(byteOut, 1, 1, encoding);
         }
-        else
-          field.appendChild(getSubFieldElement(document, byteOut));
+        else {
+        	field.appendChild(getSubFieldElement(document, byteOut.toByteArray(), 0, byteOut.size(), encoding));
+        }
         byteOut.reset();
       }
-      else byteOut.write(b);
+      else {
+    	  byteOut.write(b);
+      }
     }
 
     if(ind1 != null && ind2 != null) {
-      field.appendChild(getSubFieldElement(document, byteOut));
-//      ((Element)field).setAttributeNS(OAI_NAMESPACE, "i1", ind1);
-//      ((Element)field).setAttributeNS(OAI_NAMESPACE, "i2", ind2);
-      ((Element)field).setAttribute("i1", ind1);
-      ((Element)field).setAttribute("i2", ind2);
+    	byte [] bytes = byteOut.toByteArray();
+//    	System.out.print(((Element)field).getLocalName() + "@id=\"" + ((Element)field).getAttribute("id") + "\", @ind1=" + ind1 + ", @ind2=" + ind2 + ", content=\"");
+//    	System.out.println(new String(bytes) + "\"");
+        field.appendChild(getSubFieldElement(document, bytes, 0, bytes.length, encoding));
+        ((Element)field).setAttribute("i1", ind1);
+        ((Element)field).setAttribute("i2", ind2);
     }
-    else
-      field.appendChild(document.createTextNode("\""+getString(byteOut, 0)+"\""));
-
+    else {
+//    	System.out.print(((Element)field).getLocalName() + "@id=\"" + ((Element)field).getAttribute("id") + "\", @ind1=" + ind1 + ", @ind2=" + ind2 + ", content=\"");
+//    	System.out.println(new String(byteOut.toByteArray()) + "\"");
+        field.appendChild(document.createTextNode("\""+getString(byteOut, 0, encoding)+"\""));
+    }
     byteOut.close();
   }
 
-  private Node getSubFieldElement(Document document, ByteArrayOutputStream byteOut) throws IOException, JaferException {
-    String code = getString(byteOut, 0, 1);
+  static Node getSubFieldElement(Document document, byte[] byteOut, int start, int length, Charset encoding) throws IOException, JaferException {
     String tag = " "; // default; empty codes are invalid
-    if (Character.isJavaIdentifierPart(code.charAt(0))){
-        tag = code;
+    if (Character.isJavaIdentifierPart((char)byteOut[start])){
+        tag = Character.toString((char)byteOut[start]);
     }
     // Creating a ByteArrayOuputStream and calling toString here is ridiculous
     //String tag = getJavaIdentifierTag(getString(byteOut, 0, 1));
@@ -258,21 +327,18 @@ public Node getXML(Document document) throws RecordException {
 //    Element subfield = document.createElement("subfield");
 //    ((Element)subfield).setAttributeNS(OAI_NAMESPACE, "label", tag);
     subfield.setAttribute("label", tag);
-    subfield.appendChild(document.createTextNode(getString(byteOut, 1)));
+    subfield.appendChild(document.createTextNode(getString(byteOut, start+1, length - 1, encoding)));
     return subfield;
   }
 
-  private String getString(byte[] bytes, int offset, int len) {
+  static String getString(byte[] bytes, int offset, int len, Charset encoding) {
 
     try {
-      if (getEncoding() == MARC8_ENCODING)
-        return marc8Unicode.toUnicode(new String(bytes, offset, len, "ISO-8859-1"));
+      if (MARC8_CHARSET.equals(encoding))
+        return new MARC8Unicode().toUnicode(new String(bytes, offset, len, MARC8_CHARSET));
       else /** @todo check this */
-        return new String(bytes, offset, len, getEncodingAsString());
+        return new String(bytes, offset, len, UTF8_CHARSET);
     } catch (JaferException ex) {/** @todo handle exception */
-      System.out.println("ERROR: " + ex.toString());
-      return null;
-    } catch (UnsupportedEncodingException ex) {/** @todo handle exception */
       System.out.println("ERROR: " + ex.toString());
       return null;
     }
@@ -290,19 +356,65 @@ public Node getXML(Document document) throws RecordException {
     return out.toString(getEncodingAsString());
   }
 
-  private String getString(ByteArrayOutputStream byteOut, int offset, int len) {
+  static String getString(ByteArrayOutputStream byteOut, int offset, int len, Charset encoding) {
 
-    return getString(byteOut.toByteArray(), offset, len);
+    return getString(byteOut.toByteArray(), offset, len, encoding);
   }
 
-  private String getString(ByteArrayOutputStream byteOut, int offset) {
+  static String getString(ByteArrayOutputStream byteOut, int offset, Charset encoding) {
 
-    return getString(byteOut.toByteArray(), offset, byteOut.size() - offset);
+    return getString(byteOut.toByteArray(), offset, byteOut.size() - offset, encoding);
   }
 
-  private int getInt(byte[] bytes, int offset, int len) {
-
-    return Integer.parseInt(getString(bytes, offset, len));
+  /**
+   * bytes are the ISO-8859 bytes of a number
+   * @param bytes
+   * @param offset
+   * @param len
+   * @return
+   */
+  static int getInt(byte[] bytes, int offset, int len) {
+    int card = 1;
+    int result = 0;
+    for (int i = (offset + len - 1); i >= offset; i--){
+    	byte b = bytes[i];
+    	switch(b){
+    	case 0x30: // 0
+    		break;
+    	case 0x31: // 1
+    		result += card;
+    		break;
+    	case 0x32: // 2
+    		result += 2*card;
+    		break;
+    	case 0x33: // 3
+    		result += 3*card;
+    		break;
+    	case 0x34: // 4
+    		result += 4*card;
+    		break;
+    	case 0x35: // 5
+    		result += 5*card;
+    		break;
+    	case 0x36: // 6
+    		result += 6*card;
+    		break;
+    	case 0x37: // 7
+    		result += 7*card;
+    		break;
+    	case 0x38: // 8
+    		result += 8*card;
+    		break;
+    	case 0x39: // 9
+    		result += 9*card;
+    		break;
+    	default:
+    		throw new NumberFormatException(new String(new byte[]{b}) + " is not a parseable numeric character");	
+    	}
+    	card = card*10;
+    }
+    return result;
+//    return Integer.parseInt(getString(bytes, offset, len));
   }
 
 ////////////////////////////////////////////////////////////////////////////////

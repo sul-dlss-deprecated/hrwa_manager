@@ -32,7 +32,6 @@
 package org.jafer.zclient.operations;
 
 import org.jafer.util.ConnectionException;
-import org.jafer.zclient.Session;
 import org.jafer.util.PDUDriver;
 import org.jafer.record.Diagnostic;
 import org.jafer.query.XMLRPNQuery;
@@ -43,21 +42,18 @@ import org.w3c.dom.Node;
 import z3950.v3.*;
 import asn1.*;
 
-import java.util.logging.Logger;
-import java.util.logging.Level;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Search {
 
-  private Session session;
   private PDUDriver pduDriver;
   private static int refId = 0;
-  private static Logger logger;
+  private static Logger logger = LoggerFactory.getLogger("org.jafer.zclient");
 
-  public Search(Session session) {
+  public Search(PDUDriver pduDriver) {
 
-    this.session = session;
-    this.pduDriver = session.getPDUDriver();
-    this.logger = Logger.getLogger("org.jafer.zclient");
+    this.pduDriver = pduDriver;
   }
 
   public int[] search(Object queryObject, String[] databases, String resultSetName)
@@ -145,7 +141,7 @@ public class Search {
 	  if (! dbName.value.value.get().equalsIgnoreCase(databases[i])) {
 	    String message = "database name listed in additional search info doesn't match database name in names set.";
 	    /** @todo diag condition in exception? */
-            logger.log(Level.WARNING, message);
+            logger.warn(message);
 //	    throw new JaferException(message);
 	  }
           if (details[1] instanceof ASN1Integer)
@@ -154,7 +150,7 @@ public class Search {
 	} catch (ASN1Exception ex) {
 	  String message = "Error in accessing additional search info.";
 	  results[i] = -1;
-          logger.log(Level.WARNING, message);
+          logger.warn(message);
 	}
       }
 

@@ -21,13 +21,14 @@ package org.jafer.util;
 
 import org.jafer.util.ConnectionException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.Hashtable;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import asn1.ASN1Exception;
 import asn1.ASN1Integer;
@@ -35,28 +36,26 @@ import asn1.BEREncoding;
 import z3950.v3.PDU;
 import z3950.v3.CloseReason;
 
-import z3950.v3.*;
-import asn1.*;
 import java.util.TimerTask;
 import java.util.Timer;
 
 
 class KillSocketTask extends TimerTask {
-  private static Logger logger;
+  private static Logger logger = LoggerFactory.getLogger("org.jafer.util");;
   private Socket sock;
 
   public KillSocketTask(Socket asock) {
-    logger = Logger.getLogger("org.jafer.util");
+    
     this.sock = asock;
   }
 
   public void run() {
     try {
-      logger.fine("Attempting to force close timed out socket");
+      logger.trace("Attempting to force close timed out socket");
       this.sock.close();
     }
     catch (Exception ex) {
-      logger.fine("Force closed timed out socket failed: " + ex.getMessage());
+      logger.trace("Force closed timed out socket failed: {}", ex.getMessage());
     }
   }
 }
@@ -71,8 +70,8 @@ class KillSocketTask extends TimerTask {
 public class PDUDriver {
   private static long DATA_TIMEOUT = 60000; // Allow 60 seconds for typical data transfer
 
-  private static Logger logger;
-  private Hashtable closeReason;
+  private static Logger logger = LoggerFactory.getLogger("org.jafer.util");;
+  private Hashtable<Integer, String> closeReason;
   private Socket socket;
   private BufferedInputStream src;
   private BufferedOutputStream dest;
@@ -86,19 +85,16 @@ public class PDUDriver {
    */
   public PDUDriver(String sessionName, Socket socket, int timeout) throws IOException {
 
-    logger = Logger.getLogger("org.jafer.util");
     this.sessionName = sessionName;
     this.socket = socket;
-    closeReason = loadCloseReason(new Hashtable());
+    closeReason = loadCloseReason(new Hashtable<Integer, String>());
 
-    String message;
     try {
       this.socket.setSoTimeout(timeout);
       src = new BufferedInputStream(socket.getInputStream());
       dest = new BufferedOutputStream(socket.getOutputStream());
       } catch(java.net.SocketException e) {
-        message = sessionName + " could not reset timeout on socket (" + e.toString() + ")";
-        logger.log(Level.SEVERE, message, e);
+        logger.error("{} could not reset timeout on socket", sessionName, e);
         throw e;
       } catch (IOException e) {
         try {
@@ -168,7 +164,7 @@ public class PDUDriver {
     try {
       BEREncoding ber = getBEREncoding();
       PDU pduRequest = new PDU(ber, true);
-      logger.log(Level.FINEST, sessionName + " incoming PDU: " + dumpPDU(pduRequest));
+      if (logger.isTraceEnabled()) logger.trace("{} incoming PDU: {}", sessionName, dumpPDU(pduRequest));
       return pduRequest;
     } catch (asn1.ASN1Exception ex) {
       throw new ConnectionException("ASN1 data error", ex);
@@ -181,7 +177,7 @@ public class PDUDriver {
 
     Timer timer = null;
     try {
-      logger.log(Level.FINEST, sessionName + " outgoing PDU: " + dumpPDU(pduResponse));
+        if (logger.isTraceEnabled()) logger.trace("{} outcoming PDU: {}", sessionName, dumpPDU(pduResponse));
       long timeout = this.socket.getSoTimeout();
       if (timeout > 0) {
         timer = new Timer();
@@ -228,7 +224,7 @@ public class PDUDriver {
      reentrant = true;
 
      String closeReason = getCloseReason(reason);
-     logger.log(Level.FINE, sessionName + " requesting close due to " + closeReason);
+     logger.debug("{} requesting close due to {}", sessionName, closeReason);
 
      PDU pduResponse = new PDU();
      pduResponse.c_close = new z3950.v3.Close();
@@ -245,7 +241,7 @@ public class PDUDriver {
     int k = 9;
     if (pduRequest.c_close.s_closeReason.value != null)
       k = pduRequest.c_close.s_closeReason.value.get();
-    logger.log(Level.FINE, sessionName + " close requested due to " + getCloseReason(k));
+    logger.debug("{} close requested due to ", sessionName, getCloseReason(k));
 
     PDU pduResponse = new PDU();
     pduResponse.c_close = new z3950.v3.Close();
@@ -257,21 +253,20 @@ public class PDUDriver {
 
   private void waitClosePDU() {
 
-    BEREncoding ber;
     PDU pdu = null;
 
-    logger.log(Level.FINE, sessionName + " waiting for close response");
+    logger.debug("{} waiting for close response", sessionName);
     try {
       for (int n = 0; n < 10; n++) {
         pdu = waitForPDU();
-        if (pdu.c_close != null) {
-          logger.log(Level.FINE, sessionName + " got close response");
-          return;
+        if (pdu != null && pdu.c_close != null) {
+            logger.debug("{} got close response", sessionName);
+            return;
         }
       }
-      logger.log(Level.FINE, sessionName + " close PDU not received");
+      logger.debug("{} close PDU not received", sessionName);
     } catch (Exception ex) {
-      logger.log(Level.WARNING, sessionName + " communications error waiting for Close response (" + ex.toString() + ")");
+      logger.warn("{} communications error waiting for Close response", sessionName, ex);
     }
   }
 
@@ -292,24 +287,24 @@ public class PDUDriver {
 
   private String getCloseReason(int k) {
 
-    Integer key = new Integer(k);
+    Integer key = Integer.valueOf(k);
     if (closeReason.containsKey(key))
       return (String)closeReason.get(key);
-    return (String)closeReason.get(new Integer(9));
+    return (String)closeReason.get(Integer.valueOf(9));
   }
 
-  private Hashtable loadCloseReason(Hashtable closeReason) {
+  private Hashtable<Integer, String> loadCloseReason(Hashtable<Integer, String> closeReason) {
     /** @todo Read from config */
-    closeReason.put(new Integer(0), "Finished");
-    closeReason.put(new Integer(1), "Shutdown");
-    closeReason.put(new Integer(2), "System Problem");
-    closeReason.put(new Integer(3), "Cost Limit");
-    closeReason.put(new Integer(4), "Resources");
-    closeReason.put(new Integer(5), "Security violation");
-    closeReason.put(new Integer(6), "Protocol error");
-    closeReason.put(new Integer(7), "Lack of activity");
-    closeReason.put(new Integer(8), "Peer abort");
-    closeReason.put(new Integer(9), "unknown reason");
+    closeReason.put(Integer.valueOf(0), "Finished");
+    closeReason.put(Integer.valueOf(1), "Shutdown");
+    closeReason.put(Integer.valueOf(2), "System Problem");
+    closeReason.put(Integer.valueOf(3), "Cost Limit");
+    closeReason.put(Integer.valueOf(4), "Resources");
+    closeReason.put(Integer.valueOf(5), "Security violation");
+    closeReason.put(Integer.valueOf(6), "Protocol error");
+    closeReason.put(Integer.valueOf(7), "Lack of activity");
+    closeReason.put(Integer.valueOf(8), "Peer abort");
+    closeReason.put(Integer.valueOf(9), "unknown reason");
     return closeReason;
   }
 }
