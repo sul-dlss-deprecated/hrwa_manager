@@ -65,6 +65,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 		writeTaskHeaderMessageAndSetStartTime();
 		
 		
+		
 		writeTaskFooterMessageAndPrintTotalTime();
 		
 	}
