@@ -27,6 +27,8 @@ public class MySQLHelper {
 	public static final String HRWA_MANAGER_TODO_NEW = "NEW";
 	public static final String HRWA_MANAGER_TODO_FIELD_NAME = "hrwa_manager_todo";
 	
+	private static Connection staticConnWithAutoCommitOn = getNewDBConnection(true);
+	
 	public static Connection getNewDBConnection(boolean autoCommit) {
 
 		Connection newConn = null;
@@ -60,7 +62,7 @@ public class MySQLHelper {
 	
 	public static void createWebArchiveRecordsTableIfItDoesNotExist() throws SQLException {
 
-		Connection conn = getNewDBConnection(true);
+		Connection conn = staticConnWithAutoCommitOn;
 		
 		PreparedStatement pstmt0 = conn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "` (" +
@@ -105,7 +107,7 @@ public class MySQLHelper {
 	
 	public static void createSitesTableIfItDoesNotExist() throws SQLException {
 				
-		Connection conn = getNewDBConnection(true);
+		Connection conn = staticConnWithAutoCommitOn;
 		
 		PreparedStatement pstmt0 = conn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` (" +
@@ -140,7 +142,7 @@ public class MySQLHelper {
 	
 	public static void createFullyIndexedArchiveFilesTableIfItDoesNotExist() throws SQLException {
 
-		Connection conn = getNewDBConnection(true);
+		Connection conn = staticConnWithAutoCommitOn;
 		
 		PreparedStatement pstmt0 = conn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + "` (" +
@@ -158,7 +160,7 @@ public class MySQLHelper {
 	
 	public static void createMimetypeCodesTableIfItDoesNotExist() throws SQLException{
 
-		Connection conn = getNewDBConnection(true);
+		Connection conn = staticConnWithAutoCommitOn;
 		
 		PreparedStatement pstmt0 = conn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + "` (" +
@@ -317,7 +319,7 @@ public class MySQLHelper {
 		
 		HrwaManager.writeToLog("Updating related hosts table...", true, HrwaManager.LOG_TYPE_STANDARD);
 		
-		Connection conn = getNewDBConnection(true);
+		Connection conn = staticConnWithAutoCommitOn;
 			
 		//Create table
 		PreparedStatement pstmt1 = conn.prepareStatement(
@@ -439,7 +441,7 @@ public class MySQLHelper {
 		HashMap<String, Integer> sitesMapToReturn = new HashMap<String, Integer>();
 		
 		try {
-			Connection conn = MySQLHelper.getNewDBConnection(false);
+			Connection conn = staticConnWithAutoCommitOn;
 			PreparedStatement pstmt = conn.prepareStatement("SELECT hoststring, id FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
@@ -465,7 +467,7 @@ public class MySQLHelper {
 		HashSet<String> bibKeysToReturn = new HashSet<String>();
 		
 		try {
-			Connection conn = MySQLHelper.getNewDBConnection(false);
+			Connection conn = staticConnWithAutoCommitOn;
 			PreparedStatement pstmt = conn.prepareStatement("SELECT bib_key FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
@@ -491,7 +493,7 @@ public class MySQLHelper {
 		HashMap<String, String> bibKeysAndMarc005LastMofifiedStringsToReturn = new HashMap<String, String>();
 		
 		try {
-			Connection conn = MySQLHelper.getNewDBConnection(false);
+			Connection conn = staticConnWithAutoCommitOn;
 			PreparedStatement pstmt = conn.prepareStatement("SELECT bib_key, marc_005_last_modified FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
@@ -619,7 +621,7 @@ public class MySQLHelper {
 		HashMap<String, Integer> relatedHostsMapToReturn = new HashMap<String, Integer>();
 
 		try {
-			Connection conn = MySQLHelper.getNewDBConnection(false);
+			Connection conn = staticConnWithAutoCommitOn;
 			PreparedStatement pstmt = conn.prepareStatement("SELECT related_host, site_id FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
@@ -669,7 +671,7 @@ public class MySQLHelper {
 	public static long getMaxIdFromWebArchiveRecordsTable() {
 
 		try {
-			Connection conn = getNewDBConnection(true);
+			Connection conn = staticConnWithAutoCommitOn;
 			
 			PreparedStatement pstmt1 = conn.prepareStatement("SELECT MAX(id) FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME);
 			ResultSet resultSet = pstmt1.executeQuery();
@@ -696,7 +698,7 @@ public class MySQLHelper {
 	public static boolean archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(String nameOfArchiveFile) {
 
 		try {
-			Connection conn = getNewDBConnection(true);
+			Connection conn = staticConnWithAutoCommitOn;
 			
 			PreparedStatement pstmt1 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + " WHERE archive_file_name = ?");
 			pstmt1.setString(1, nameOfArchiveFile);
