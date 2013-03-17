@@ -61,10 +61,8 @@ public class MySQLHelper {
 	}
 	
 	public static void createWebArchiveRecordsTableIfItDoesNotExist() throws SQLException {
-
-		Connection conn = staticConnWithAutoCommitOn;
 		
-		PreparedStatement pstmt0 = conn.prepareStatement(
+		PreparedStatement pstmt0 = staticConnWithAutoCommitOn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "` (" +
 			"  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'Auto-incremented unique numeric identifier for MySQL convenience.'," +
 			"  `ip` varchar(39) NOT NULL COMMENT 'IPv4 or IPv6 address of the host of the record crawled.'," +
@@ -106,10 +104,8 @@ public class MySQLHelper {
 	}
 	
 	public static void createSitesTableIfItDoesNotExist() throws SQLException {
-				
-		Connection conn = staticConnWithAutoCommitOn;
 		
-		PreparedStatement pstmt0 = conn.prepareStatement(
+		PreparedStatement pstmt0 = staticConnWithAutoCommitOn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` (" +
 			"  `id` int(11) unsigned NOT NULL AUTO_INCREMENT," +
 			"  `bib_key` varchar(10) NOT NULL," +
@@ -141,10 +137,8 @@ public class MySQLHelper {
 	}
 	
 	public static void createFullyIndexedArchiveFilesTableIfItDoesNotExist() throws SQLException {
-
-		Connection conn = staticConnWithAutoCommitOn;
 		
-		PreparedStatement pstmt0 = conn.prepareStatement(
+		PreparedStatement pstmt0 = staticConnWithAutoCommitOn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + "` (" +
 			"  `archive_file_name` varchar(255) NOT NULL," +
 			"  `crawl_year_and_month` varchar(7) NOT NULL," +
@@ -159,10 +153,8 @@ public class MySQLHelper {
 	}
 	
 	public static void createMimetypeCodesTableIfItDoesNotExist() throws SQLException{
-
-		Connection conn = staticConnWithAutoCommitOn;
 		
-		PreparedStatement pstmt0 = conn.prepareStatement(
+		PreparedStatement pstmt0 = staticConnWithAutoCommitOn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + "` (" +
 			"`mimetype_detected` varchar(100) DEFAULT NULL," +
 			"`mimetype_code` varchar(100) DEFAULT NULL," +
@@ -176,12 +168,12 @@ public class MySQLHelper {
 		
 		//And now we need to verify that there aren't any records in this table (if it already existed)
 		
-		PreparedStatement pstmt1 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME);
+		PreparedStatement pstmt1 = staticConnWithAutoCommitOn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME);
 		ResultSet resultSet = pstmt1.executeQuery();
 		if (resultSet.next()) {
 			if(resultSet.getInt(1) == 0) {
 				
-				PreparedStatement pstmt2 = conn.prepareStatement(
+				PreparedStatement pstmt2 = staticConnWithAutoCommitOn.prepareStatement(
 					"INSERT INTO `" + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + "` (`mimetype_detected`, `mimetype_code`) VALUES" +
 					"('application/rsd+xml', 'DISCOVERY')," +
 					"('application/x-mspublisher', 'OFFICE')," +
@@ -307,7 +299,6 @@ public class MySQLHelper {
         
 		pstmt1.close();
 		
-        conn.close();
 	}
 	
 	/**
@@ -318,11 +309,9 @@ public class MySQLHelper {
 	public static void updateRelatedHostsTableFromRelatedHostsFile() throws SQLException{
 		
 		HrwaManager.writeToLog("Updating related hosts table...", true, HrwaManager.LOG_TYPE_STANDARD);
-		
-		Connection conn = staticConnWithAutoCommitOn;
 			
 		//Create table
-		PreparedStatement pstmt1 = conn.prepareStatement(
+		PreparedStatement pstmt1 = staticConnWithAutoCommitOn.prepareStatement(
 			"CREATE TABLE IF NOT EXISTS `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (" +
 			"  `site_id` int(10) unsigned NOT NULL," +
 			"  `related_host` varchar(255) NOT NULL," +
@@ -386,7 +375,7 @@ public class MySQLHelper {
 			//And remove the last comma because it's not valid, and then add ")" to complete the insert statement 
 			relatedHostRecordsDeletionStatement = relatedHostRecordsDeletionStatement.substring(0, relatedHostRecordsDeletionStatement.length()-1) + ")";
 			
-			PreparedStatement pstmt2 = conn.prepareStatement(relatedHostRecordsDeletionStatement);
+			PreparedStatement pstmt2 = staticConnWithAutoCommitOn.prepareStatement(relatedHostRecordsDeletionStatement);
 			
 			pstmt2.execute();
 			pstmt2.close();
@@ -425,7 +414,7 @@ public class MySQLHelper {
 			//And remove the last comma because it's not valid
 			relatedHostRecordsInsertStatement = relatedHostRecordsInsertStatement.substring(0, relatedHostRecordsInsertStatement.length()-1);
 			
-			PreparedStatement pstmt3 = conn.prepareStatement(relatedHostRecordsInsertStatement);
+			PreparedStatement pstmt3 = staticConnWithAutoCommitOn.prepareStatement(relatedHostRecordsInsertStatement);
 			
 			pstmt3.execute();
 			pstmt3.close();
@@ -433,7 +422,6 @@ public class MySQLHelper {
 			HrwaManager.writeToLog("Addded " + relatedHostsToAddMappedToSiteSeeds.size() + " new related hosts.", true, HrwaManager.LOG_TYPE_STANDARD);
 		}
 		
-        conn.close();
 	}
 	
 	public static HashMap<String, Integer> getSitesMap() {
@@ -441,8 +429,7 @@ public class MySQLHelper {
 		HashMap<String, Integer> sitesMapToReturn = new HashMap<String, Integer>();
 		
 		try {
-			Connection conn = staticConnWithAutoCommitOn;
-			PreparedStatement pstmt = conn.prepareStatement("SELECT hoststring, id FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
+			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT hoststring, id FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
 			while (resultSet.next()) {
@@ -453,7 +440,6 @@ public class MySQLHelper {
 			
 			resultSet.close();
 	        pstmt.close();
-	        conn.close();
 		} catch (SQLException e) {
 			HrwaManager.writeToLog("Error: Could not retrieve sites table records from DB", true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
@@ -467,8 +453,7 @@ public class MySQLHelper {
 		HashSet<String> bibKeysToReturn = new HashSet<String>();
 		
 		try {
-			Connection conn = staticConnWithAutoCommitOn;
-			PreparedStatement pstmt = conn.prepareStatement("SELECT bib_key FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
+			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT bib_key FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
 			while (resultSet.next()) {
@@ -479,7 +464,6 @@ public class MySQLHelper {
 			
 			resultSet.close();
 	        pstmt.close();
-	        conn.close();
 		} catch (SQLException e) {
 			HrwaManager.writeToLog("Error: Could not retrieve bib_keys from sites table.", true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
@@ -493,8 +477,7 @@ public class MySQLHelper {
 		HashMap<String, String> bibKeysAndMarc005LastMofifiedStringsToReturn = new HashMap<String, String>();
 		
 		try {
-			Connection conn = staticConnWithAutoCommitOn;
-			PreparedStatement pstmt = conn.prepareStatement("SELECT bib_key, marc_005_last_modified FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
+			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT bib_key, marc_005_last_modified FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
 			while (resultSet.next()) {
@@ -505,7 +488,6 @@ public class MySQLHelper {
 			
 			resultSet.close();
 	        pstmt.close();
-	        conn.close();
 		} catch (SQLException e) {
 			HrwaManager.writeToLog("Error: Could not retrieve bib_keys from sites table.", true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
@@ -621,8 +603,7 @@ public class MySQLHelper {
 		HashMap<String, Integer> relatedHostsMapToReturn = new HashMap<String, Integer>();
 
 		try {
-			Connection conn = staticConnWithAutoCommitOn;
-			PreparedStatement pstmt = conn.prepareStatement("SELECT related_host, site_id FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME);
+			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT related_host, site_id FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME);
 			ResultSet resultSet = pstmt.executeQuery();
 			
 			while (resultSet.next()) {
@@ -632,7 +613,6 @@ public class MySQLHelper {
 			
 			resultSet.close();
 	        pstmt.close();
-	        conn.close();
 		} catch (SQLException e) {
 			HrwaManager.writeToLog("Error: Could not retrieve records from HRWA MySQL related hosts table", true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
@@ -671,16 +651,14 @@ public class MySQLHelper {
 	public static long getMaxIdFromWebArchiveRecordsTable() {
 
 		try {
-			Connection conn = staticConnWithAutoCommitOn;
 			
-			PreparedStatement pstmt1 = conn.prepareStatement("SELECT MAX(id) FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME);
+			PreparedStatement pstmt1 = staticConnWithAutoCommitOn.prepareStatement("SELECT MAX(id) FROM " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME);
 			ResultSet resultSet = pstmt1.executeQuery();
 			if (resultSet.next()) {
 				return resultSet.getLong(1);
 			 }
 	        
 			pstmt1.close();
-	        conn.close();
         
 		} catch (SQLException e) {
 			HrwaManager.writeToLog("An error occurred while attempting to retrieve the max id from the web archive records table.", true, HrwaManager.LOG_TYPE_ERROR);
@@ -698,9 +676,8 @@ public class MySQLHelper {
 	public static boolean archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(String nameOfArchiveFile) {
 
 		try {
-			Connection conn = staticConnWithAutoCommitOn;
 			
-			PreparedStatement pstmt1 = conn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + " WHERE archive_file_name = ?");
+			PreparedStatement pstmt1 = staticConnWithAutoCommitOn.prepareStatement("SELECT COUNT(*) FROM " + HrwaManager.MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME + " WHERE archive_file_name = ?");
 			pstmt1.setString(1, nameOfArchiveFile);
 			ResultSet resultSet = pstmt1.executeQuery();
 			if (resultSet.next()) {
@@ -710,7 +687,6 @@ public class MySQLHelper {
 			 }
 	        
 			pstmt1.close();
-	        conn.close();
         
 		} catch (SQLException e) {
 			HrwaManager.writeToLog("An error occurred while checking the fully indexed archive files table to see if the following archive file has already been indexed: " + nameOfArchiveFile, true, HrwaManager.LOG_TYPE_ERROR);
