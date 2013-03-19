@@ -89,6 +89,8 @@ public class MySQLArchiveRecordsToSolrTask extends HrwaTask {
 					true, HrwaManager.LOG_TYPE_STANDARD);
 			
 			indexMySQLArchiveRecordsIntoSolr(currentRecordRetrievalOffset);
+			
+			System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
 		}
 		
 		//CLEANUP TIME

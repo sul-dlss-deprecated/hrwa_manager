@@ -67,8 +67,8 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		//Initialize the one and only database connection for this instance.
 		this.mySQLConn = MySQLHelper.getNewDBConnection(false);
 		
-		this.sitesMap = MySQLHelper.getSitesMap();
-		this.relatedHostsMap = MySQLHelper.getRelatedHostsMap();
+		this.sitesMap = MySQLHelper.getSitesMap(null);
+		this.relatedHostsMap = MySQLHelper.getRelatedHostsMap(null);
 		
 		try {
 			setupMainInsertPreparedStatement();

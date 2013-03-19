@@ -340,7 +340,7 @@ public class MySQLHelper {
 		}
 		
 		//Compare the related hosts file list to what's already in MySQL
-		HashMap<String, Integer> relatedHostsMapFromMySQL = MySQLHelper.getRelatedHostsMap();
+		HashMap<String, Integer> relatedHostsMapFromMySQL = MySQLHelper.getRelatedHostsMap(null);
 		
 		//Determine which records should be deleted and which records will be marked as newly added
 		HashMap<String, String> relatedHostsToAddMappedToSiteSeeds = new HashMap<String, String>();
@@ -386,7 +386,7 @@ public class MySQLHelper {
 		//Then add all new related hosts to related hosts table, linking site table ids to related host values
 		if(relatedHostsToAddMappedToSiteSeeds.size() > 0) {
 			
-			HashMap<String, Integer> sitesToSiteIdsMap = MySQLHelper.getSitesMap();
+			HashMap<String, Integer> sitesToSiteIdsMap = MySQLHelper.getSitesMap(null);
 			
 			String relatedHostRecordsInsertStatement = "INSERT INTO `" + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + "` (`site_id`, `related_host`, `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "`) VALUES";
 			
@@ -424,12 +424,18 @@ public class MySQLHelper {
 		
 	}
 	
-	public static HashMap<String, Integer> getSitesMap() {
+	/**
+	 * Gets rows from the sites table, optionally filtering by the given whereClause.
+	 * If you want all rows, pass null for the whereClause Argument.
+	 * @param whereClause
+	 * @return
+	 */
+	public static HashMap<String, Integer> getSitesMap(String whereClause) {
 		
 		HashMap<String, Integer> sitesMapToReturn = new HashMap<String, Integer>();
 		
 		try {
-			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT hoststring, id FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME);
+			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT hoststring, id FROM " + HrwaManager.MYSQL_SITES_TABLE_NAME + (whereClause == null ? "" : " " + whereClause));
 			ResultSet resultSet = pstmt.executeQuery();
 			
 			while (resultSet.next()) {
@@ -598,12 +604,18 @@ public class MySQLHelper {
 		HrwaManager.writeToLog("Number of existing sites table records updated: " + existingRrecordsToUpdate.size(), true, HrwaManager.LOG_TYPE_STANDARD);
 	}
 
-	public static HashMap<String, Integer> getRelatedHostsMap() {
+	/**
+	 * Gets rows from the related hosts table, optionally filtering by the given whereClause.
+	 * If you want all rows, pass null for the whereClause Argument.
+	 * @param whereClause
+	 * @return
+	 */
+	public static HashMap<String, Integer> getRelatedHostsMap(String whereClause) {
 		
 		HashMap<String, Integer> relatedHostsMapToReturn = new HashMap<String, Integer>();
 
 		try {
-			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT related_host, site_id FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME);
+			PreparedStatement pstmt = staticConnWithAutoCommitOn.prepareStatement("SELECT related_host, site_id FROM " + HrwaManager.MYSQL_RELATED_HOSTS_TABLE_NAME + (whereClause == null ? "" : " " + whereClause));
 			ResultSet resultSet = pstmt.executeQuery();
 			
 			while (resultSet.next()) {

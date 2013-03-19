@@ -25,6 +25,7 @@ import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
 import edu.columbia.ldpd.hrwa.tasks.MySQLArchiveRecordsToSolrTask;
+import edu.columbia.ldpd.hrwa.tasks.RegularMaintenanceTask;
 import edu.columbia.ldpd.hrwa.tasks.SitesToSolrAndMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.TalkToClioTestTask;
 import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
@@ -76,8 +77,9 @@ public class HrwaManager {
 	public static int				mysqlCommitBatchSize							= 1000; //default, can be overridden
 	public static int				mySQLToSolrRowRetrievalSize						= 1000; //default, can be overridden
 	
+	public static int				regularMaintenanceMySQLRowRetrievalSize			= 1000; //default, can be overridden
+	
 	public static String			asfSolrUrl										= ""; //default, should be overridden
-	public static int				asfSolrAddBatchSize								= 1000; //default, can be overridden
 	
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
 	public static long maxMemoryThresholdInBytesForStartingNewThreadProcesses = (int)(maxAvailableMemoryInBytes*.75); //default, might be overridden
@@ -91,6 +93,7 @@ public class HrwaManager {
 	private static boolean runSitesToSolrAndMySQLTask		= false;
 	private static boolean runArchiveToMySQLTask			= false;
 	private static boolean runMySQLArchiveRecordsToSolrTask = false;
+	private static boolean runRegularMaintenanceTask		= false;
 	
 	private static boolean runTalkToClioTestTask			= false;
 	private static boolean runArchiveFileReadTestTask		= false;
@@ -176,6 +179,9 @@ public class HrwaManager {
 		}
 		if(runMySQLArchiveRecordsToSolrTask) {
 			tasksToRun.add(new MySQLArchiveRecordsToSolrTask());
+		}
+		if(runRegularMaintenanceTask) {
+			tasksToRun.add(new RegularMaintenanceTask());
 		}
 		
 		//And run those tasks
@@ -425,19 +431,19 @@ public class HrwaManager {
 	    		}
 	        }
 	        
+	        if ( cmdLine.hasOption( "regularmaintenancemysqlrowretrievalsize") ) {
+	        	regularMaintenanceMySQLRowRetrievalSize = Integer.parseInt(cmdLine.getOptionValue( "regularmaintenancemysqlrowretrievalsize" ));
+	        	System.out.println("A regular maintenance MySQL row retrieval size has been supplied.");
+	        	
+	        	if(HrwaManager.regularMaintenanceMySQLRowRetrievalSize < 1) {
+	    			System.out.println("Error: The --regularmaintenancemysqlrowretrievalsize must be > 1. Please change the command line argument value that you supplied.");
+	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
+	    		}
+	        }
+	        
 	        if ( cmdLine.hasOption( "asfsolrurl") ) {
 	        	asfSolrUrl = cmdLine.getOptionValue( "asfsolrurl" );
 	        	System.out.println("An ASF Solr URL has been supplied.");
-	        }
-	        
-	        if ( cmdLine.hasOption( "asfsolraddbatchsize") ) {
-	        	asfSolrAddBatchSize = Integer.parseInt(cmdLine.getOptionValue( "asfsolraddbatchsize" ));
-	        	System.out.println("An ASF Solr add batch size has been supplied.");
-	        	
-	        	if(HrwaManager.asfSolrAddBatchSize < 1) {
-	    			System.out.println("Error: The --asfsolraddbatchsize must be > 1. Please change the command line argument value that you supplied.");
-	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
-	    		}
 	        }
 	        
 	        //Test Task
@@ -476,6 +482,12 @@ public class HrwaManager {
 	        	System.out.println("* Will run MySQLArchiveRecordsToSolrTask.");
 	        }
 	        
+	        //Task 5: regularmaintenance
+	        if ( cmdLine.hasOption( "regularmaintenance") ) {
+	        	HrwaManager.runRegularMaintenanceTask = true;
+	        	System.out.println("* Will run RegularMaintenanceTask.");
+	        }
+	        
         }
         else
         {
@@ -506,6 +518,7 @@ public class HrwaManager {
         options.addOption( "talktocliotest",			false, "Run TalkToClioTestTask" );
         options.addOption( "archivefilereadtest",		false, "Run ArchiveFileReadTestTask" );
         options.addOption( "mysqlarchiverecordstosolr",	false, "Run MySQLArchiveRecordsToSolrTask" );
+        options.addOption( "regularmaintenance",	false, "Run RegularMaintenanceTask" );
         
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
@@ -627,17 +640,17 @@ public class HrwaManager {
         );
         
         options.addOption(
+        		OptionBuilder.withArgName( "integer" )
+                .hasArg()
+                .withDescription( "Regular maintenance MySQL row retrieval size (e.g. When performing regular HRWA app maintenance, select records from MySQL in groups of 1000)." )
+                .create( "regularmaintenancemysqlrowretrievalsize" )
+        );
+        
+        options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "ASF Solr URL to connect to." )
                 .create( "asfsolrurl" )
-        );
-        
-        options.addOption(
-        		OptionBuilder.withArgName( "integer" )
-                .hasArg()
-                .withDescription( "ASF Solr add batch size (e.g. When indexing records into to Solr, add new documents in batches of 1000)." )
-                .create( "asfsolraddbatchsize" )
         );
         
     }

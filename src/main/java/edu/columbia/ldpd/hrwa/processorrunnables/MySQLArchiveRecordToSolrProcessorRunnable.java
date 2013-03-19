@@ -175,8 +175,6 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 		ModifiableSolrParams modifiableSolrParams;
 		
 		while (resultSet.next()) {
-			
-			try {
 				
 				ASFSolrIndexer.indexDocAndExtractMetadataToSolr(resultSet);
 				
@@ -185,19 +183,10 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 				if(HrwaManager.verbose) {
 					System.out.println("Thread " + this.getUniqueRunnableId() + ": Num records indexed into Solr: " + numArchiveRecordsIndexedIntoSolr);
 				}
-				
-			} catch (SolrServerException e1) {
-				HrwaManager.writeToLog("Error: SolrServerException encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
-				e1.printStackTrace();
-			} catch (IOException e2) {
-				HrwaManager.writeToLog("Error: IOException encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id"), true, HrwaManager.LOG_TYPE_ERROR);
-				e2.printStackTrace();
-			} catch (Exception e3) {
-				HrwaManager.writeToLog("Error: Unknown Exception encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id") + "\n" +
-				e3.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
-			}
 			
 		}
+		
+		System.gc(); //Must garbage collect to make sure that closing file handles close themselves quickly enough.
 		
 		HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
 		

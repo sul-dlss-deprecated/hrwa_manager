@@ -280,6 +280,7 @@
 
    <copyField source="title"    dest="text"/>
    <copyField source="contents" dest="text"/>
+   <copyField source="original_url" dest="text"/>
 
    <!-- FSF fields to facets.  These copyFields are in FSF schema.xml, too, but we
         let ASF do its own copying for safety. -->
