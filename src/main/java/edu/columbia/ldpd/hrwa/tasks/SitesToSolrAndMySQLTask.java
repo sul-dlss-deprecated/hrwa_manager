@@ -13,6 +13,7 @@ import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.jafer.exception.JaferException;
 import org.jafer.util.xml.DOMFactory;
 import org.w3c.dom.Document;
@@ -27,7 +28,7 @@ import edu.columbia.ldpd.hrwa.solr.SolrIndexer;
 
 public class SitesToSolrAndMySQLTask extends HrwaTask {
 	
-	private static String PATH_TO_FSF_SOLR_PROPERTIES_FILE = "/fsf_solr.fillmore.properties";
+	private static String PATH_TO_FSF_SOLR_PROPERTIES_FILE = "/fsf_solr.local.properties";
 	
 	private static String tempHrwaClioMarcXmlFileDirectory =  HrwaManager.tmpDirPath + File.separator + "hrwa_clio_marc_xml_files";
 	private static String tempHrwaFSFSolrDocXmlFileDirectory =  HrwaManager.tmpDirPath + File.separator + "hrwa_fsf_solr_doc_xml_files";
@@ -138,10 +139,17 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 		
 		//Now let's index all of those solr docs into solr
 		Properties solrPropertiesConfig = new Properties();
+		
         try {
 			solrPropertiesConfig.load(getClass().getResourceAsStream(PATH_TO_FSF_SOLR_PROPERTIES_FILE));
 	        SolrIndexer si = new SolrIndexer(solrPropertiesConfig);
 	        si.index(solrFileDir);
+	        
+	        //And then remove deleted FSF records from Solr
+			for(String singleBibKey : bibKeysOfRecordsToDelete) {
+				String deletionQuery = "<delete><query>bib_key:" + singleBibKey + "</query></delete>";
+				si.executeUpdateQuery(deletionQuery);
+			}
 			
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block

@@ -29,7 +29,7 @@ public class SolrIndexer {
     public static final String BATCH_SIZE_KEY = "BATCH_SIZE";
     public static final String SOLR_UPDATE_URL_KEY = "SOLR_UPDATE_URL";
     private static final String COMMIT_MSG = "<commit />";
-    private static Pattern SERVER_NAME = Pattern.compile("^https?://([^.]+)\\..*");
+    private static Pattern SERVER_NAME = Pattern.compile("^https?://(localhost|(([^.]+)))\\.{0,1}.*");
     String emailSender;
     String emailRecipients;
     String errorReportsPath;
@@ -169,6 +169,15 @@ public class SolrIndexer {
     private static HttpEntity getEntity(File content){
         return new FileEntity(content,UTF8_XML);
     }
+    
+    public void executeUpdateQuery(String queryToExecute){
+    	try {
+    		empty(post(queryToExecute));
+			empty(post(COMMIT_MSG));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    }
 
     private static String getServerName(String updateUrl){
         Matcher m = SERVER_NAME.matcher(updateUrl);
@@ -180,6 +189,9 @@ public class SolrIndexer {
         String name = getServerName(url);
         System.out.println("Server name: " + name + " from " + url);
         url = "https://harding.cul.columbia.edu:8080/solr-4/fsf/update";
+        name = getServerName(url);
+        System.out.println("Server name: " + name + " from " + url);
+        url = "http://localhost:8983/solr/hrwa-fsf/update";
         name = getServerName(url);
         System.out.println("Server name: " + name + " from " + url);
     }

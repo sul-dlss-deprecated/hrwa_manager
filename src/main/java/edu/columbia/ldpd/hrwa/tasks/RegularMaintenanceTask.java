@@ -68,7 +68,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 		
 		//Update sites and related hosts tables to latest versions
 		HrwaTask sitesToSolrAndMySQLTask = new SitesToSolrAndMySQLTask();
-		//sitesToSolrAndMySQLTask.runTask();
+		sitesToSolrAndMySQLTask.runTask();
 		
 		//Update unlinked web archive records that should be linked to new sites (linked by sites table hoststring or related_hosts table entries)
 		//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns
@@ -263,6 +263,9 @@ public class RegularMaintenanceTask extends HrwaTask {
 				System.exit(HrwaManager.EXIT_CODE_ERROR);
 			}
 		}
+		
+		//Next, we want to DELETE all archive records marked for deletion
+		
 		
 		//And finally, run SitesToSolrAndMySQLTask IF AND ONLY IF totalNumberOfWebArchiveRecordRowsUpdatedByThisTask > 0
 		//If totalNumberOfWebArchiveRecordRowsUpdatedByThisTask == 0, then that means that there were no updates.
