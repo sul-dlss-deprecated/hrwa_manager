@@ -68,7 +68,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 		
 		//Update sites and related hosts tables to latest versions
 		HrwaTask sitesToSolrAndMySQLTask = new SitesToSolrAndMySQLTask();
-		sitesToSolrAndMySQLTask.runTask();
+		//sitesToSolrAndMySQLTask.runTask();
 		
 		//Update unlinked web archive records that should be linked to new sites (linked by sites table hoststring or related_hosts table entries)
 		//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns
@@ -225,7 +225,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 		//for all archive records that should not be indexed.
 		pstmt = conn.prepareStatement(
 			"UPDATE web_archive_records" +
-			" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
+			" LEFT OUTER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
 			" SET hrwa_manager_todo = NULL" +
 			" WHERE" +
 			" web_archive_records.id >= ?" +
@@ -236,6 +236,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 			" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
 			" AND (" +
 				" site_id IS NULL" +
+				" OR " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IS NULL" +
 				" OR " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code NOT IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE_LIST +
 			" )"
 		);

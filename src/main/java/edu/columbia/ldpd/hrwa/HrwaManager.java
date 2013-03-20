@@ -25,6 +25,7 @@ import edu.columbia.ldpd.hrwa.tasks.ArchiveToMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.DownloadArchiveFilesFromArchivitTask;
 import edu.columbia.ldpd.hrwa.tasks.HrwaTask;
 import edu.columbia.ldpd.hrwa.tasks.MySQLArchiveRecordsToSolrTask;
+import edu.columbia.ldpd.hrwa.tasks.QuarterlyMaintenanceTask;
 import edu.columbia.ldpd.hrwa.tasks.RegularMaintenanceTask;
 import edu.columbia.ldpd.hrwa.tasks.SitesToSolrAndMySQLTask;
 import edu.columbia.ldpd.hrwa.tasks.TalkToClioTestTask;
@@ -94,6 +95,7 @@ public class HrwaManager {
 	private static boolean runArchiveToMySQLTask			= false;
 	private static boolean runMySQLArchiveRecordsToSolrTask = false;
 	private static boolean runRegularMaintenanceTask		= false;
+	private static boolean runQuarterlyMaintenanceTask		= false;
 	
 	private static boolean runTalkToClioTestTask			= false;
 	private static boolean runArchiveFileReadTestTask		= false;
@@ -182,6 +184,9 @@ public class HrwaManager {
 		}
 		if(runRegularMaintenanceTask) {
 			tasksToRun.add(new RegularMaintenanceTask());
+		}
+		if(runQuarterlyMaintenanceTask) {
+			tasksToRun.add(new QuarterlyMaintenanceTask());
 		}
 		
 		//And run those tasks
@@ -488,6 +493,12 @@ public class HrwaManager {
 	        	System.out.println("* Will run RegularMaintenanceTask.");
 	        }
 	        
+	        //Task 6: quarterlymaintenance
+	        if ( cmdLine.hasOption( "quarterlymaintenance") ) {
+	        	HrwaManager.runQuarterlyMaintenanceTask = true;
+	        	System.out.println("* Will run QuarterlyMaintenanceTask.");
+	        }
+	        
         }
         else
         {
@@ -519,6 +530,7 @@ public class HrwaManager {
         options.addOption( "archivefilereadtest",		false, "Run ArchiveFileReadTestTask" );
         options.addOption( "mysqlarchiverecordstosolr",	false, "Run MySQLArchiveRecordsToSolrTask" );
         options.addOption( "regularmaintenance",	false, "Run RegularMaintenanceTask" );
+        options.addOption( "quarterlymaintenance",	false, "Run QuarterlyMaintenanceTask" );
         
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
