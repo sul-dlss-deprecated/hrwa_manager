@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.columbia.ldpd.hrwa</groupId>
   <artifactId>hrwa_manager</artifactId>
-  <version>0.0.8</version>
+  <version>0.0.9</version>
   <name>HRWA Manager</name>
   <description>Human Rights Web Archive manager application.</description>
   <url>https://github.com/cul/hrwa_manager</url>
@@ -246,7 +246,7 @@
 			    <version>2.12</version>
 			    <configuration>
 			        <forkMode>always</forkMode>
-			        <skipTests>true</skipTests>
+			        <!-- <skipTests>true</skipTests> -->
 			    </configuration>
 			</plugin>
 			<plugin>

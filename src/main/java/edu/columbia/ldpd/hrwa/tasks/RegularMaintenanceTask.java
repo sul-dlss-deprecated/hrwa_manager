@@ -64,13 +64,13 @@ public class RegularMaintenanceTask extends HrwaTask {
 		
 		writeTaskHeaderMessageAndSetStartTime();
 		
+		long totalNumberOfWebArchiveRecordRowsUpdatedByThisTask = 0;
+		
 		//Update sites and related hosts tables to latest versions
-		HrwaTask updateSitesTable = new SitesToSolrAndMySQLTask();
-		updateSitesTable.runTask();
+		HrwaTask sitesToSolrAndMySQLTask = new SitesToSolrAndMySQLTask();
+		sitesToSolrAndMySQLTask.runTask();
 		
-		////////// ARE THERE ANY NEW SITES / RELATED HOSTS THAT WE NEED TO LINK TO WEB ARCHIVE RECORDS? //////////
-		
-		//Update unlinked web archive records that should be linked to new sites (linked by hoststring)
+		//Update unlinked web archive records that should be linked to new sites (linked by sites table hoststring or related_hosts table entries)
 		//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns
 		
 		long maxWebArchiveRecordMySQLId = MySQLHelper.getMaxIdFromWebArchiveRecordsTable();
@@ -82,40 +82,58 @@ public class RegularMaintenanceTask extends HrwaTask {
 		
 		try {
 			
-		//Get number of NEW sites.  If > 0, then run update below
+		//First, check for conflicts between DELETED sites and related hosts that link to those sites
+		//There shouldn't be any related hosts that point to deleted sites.  If there are, stop program and log error so that this issue can be resolved.
+		pstmt = conn.prepareStatement(
+				"SELECT related_host, sites.hoststring FROM related_hosts" +
+				" INNER JOIN sites ON related_hosts.site_id = sites.id" +
+				" WHERE" +
+				" sites.hrwa_manager_todo = 'DELETED'"
+		);
+		
+		ResultSet resultSet = pstmt.executeQuery();
+		String relatedHostDeletedSiteConflictMessage = "";
+		while(resultSet.next()) {
+			relatedHostDeletedSiteConflictMessage += "\n- Related host " + resultSet.getString("related_host") + " is pointing to a site that has been marked for deletion: " + resultSet.getString("hoststring");
+		}
+		
+		if( ! relatedHostDeletedSiteConflictMessage.equals("") ) {
+			HrwaManager.writeToLog("One or more related host / deleted site conflict found:" + relatedHostDeletedSiteConflictMessage + "\nThis problem must be resolved before RegularMaintenanceTask can continue.\nExiting program.", true, HrwaManager.LOG_TYPE_ERROR);
+			System.exit(HrwaManager.EXIT_CODE_ERROR);
+		}
+			
+		//Get number of NEW sites.  If > 0, then we want to go through all unlinked web archive records and link them to a site
 		if(MySQLHelper.getSitesMap("WHERE sites.hrwa_manager_todo = 'NEW'").size() > 0) {
 		
 			pstmt = conn.prepareStatement(
 				"UPDATE web_archive_records" +
 				" INNER JOIN sites ON web_archive_records.hoststring = sites.hoststring" +
-				" SET web_archive_records.site_id = sites.id, web_archive_records.hrwa_manager_todo = NULL, web_archive_records.linked_via_related_host = 0" +  
+				" SET web_archive_records.site_id = sites.id, web_archive_records.hrwa_manager_todo = 'UPDATED', web_archive_records.linked_via_related_host = 0" +  
 				" WHERE" + 
-				" web_archive_records.site_id IS NULL" + 
-				" AND" + 
-				" sites.hrwa_manager_todo = 'NEW'" + 
-				" AND " + 
-				" web_archive_records.id >= ?" + 
-				" AND" + 
-				" web_archive_records.id <= ?"
+				" web_archive_records.id >= ?" +
+				" AND web_archive_records.id <= ?" +
+				" AND web_archive_records.site_id IS NULL" + 
+				" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+				" AND sites.hrwa_manager_todo = 'NEW'"
 			);
 			
 			for(currentRecordRetrievalOffset = 0, rowsUpdated = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.regularMaintenanceMySQLRowRetrievalSize) {
+				System.out.println("Linking web archive records to NEW sites. MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " (" + rowsUpdated + " rows updated so far)...");
 				pstmt.setLong(1, currentRecordRetrievalOffset);
 				pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
 				rowsUpdated += pstmt.executeUpdate();
-				
-				System.out.println("Linking web archive records to NEW sites..." + (int)(100*currentRecordRetrievalOffset/maxWebArchiveRecordMySQLId) + "% complete (" + rowsUpdated + " rows updated so far)...");
 			}
+			HrwaManager.writeToLog("Linking web archive records to NEW sites -- Done! " +
+			"Affected rows: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
 			
-			HrwaManager.writeToLog("Linking web archive records to NEW sites...100% complete!\nDone!\n" +
-			"Total number of rows updated: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
+			totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsUpdated;
 	
 			pstmt.close();
 			
-			//One all of this updating is done, set the hrwa_manager_todo status to NULL for all sites that were previously marked as NEW 
+			//Once all of this updating is done, set the hrwa_manager_todo status to NULL for all sites that were previously marked as NEW 
 			
 			pstmt = conn.prepareStatement("UPDATE sites SET hrwa_manager_todo = NULL WHERE hrwa_manager_todo = 'NEW'");
-			HrwaManager.writeToLog("Total number of new sites updated: " + pstmt.executeUpdate(), true, HrwaManager.LOG_TYPE_STANDARD);
+			HrwaManager.writeToLog("Total number of hrwa_manager_todo='NEW' sites reset to NULL: " + pstmt.executeUpdate(), true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		} else {
 			HrwaManager.writeToLog("No NEW sites found, so no sites-related updates were necessary.", true, HrwaManager.LOG_TYPE_STANDARD);
@@ -124,62 +142,114 @@ public class RegularMaintenanceTask extends HrwaTask {
 		//For NEW related hosts, we'll also update unlinked web archive records that should be linked via related hosts to sites
 		//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns
 		
-		//Get number of NEW related hosts.  If > 0, then run update below
-		if(MySQLHelper.getSitesMap("WHERE sites.hrwa_manager_todo = 'NEW'").size() > 0) {
+		//Get number of NEW related hosts.  If > 0, then we want to go through all unlinked web archive records and link them to a site THROUGH a related host
+		if(MySQLHelper.getRelatedHostsMap("WHERE related_hosts.hrwa_manager_todo = 'NEW'").size() > 0) {
 			pstmt = conn.prepareStatement(
 				"UPDATE web_archive_records" +
 				" INNER JOIN related_hosts ON web_archive_records.hoststring = related_hosts.related_host" +
 				" INNER JOIN sites ON related_hosts.site_id = sites.id" +
-				" SET web_archive_records.site_id = sites.id, web_archive_records.hrwa_manager_todo = NULL, linked_via_related_host = 1" +
+				" SET web_archive_records.site_id = sites.id, web_archive_records.hrwa_manager_todo = 'UPDATED', linked_via_related_host = 1" +
 				" WHERE" +
-				" web_archive_records.site_id IS NULL" +
-				" AND" +
-				" related_hosts.hrwa_manager_todo = 'NEW'" +
-				" AND " +
 				" web_archive_records.id >= ?" +
-				" AND" +
-				" web_archive_records.id <= ?"
+				" AND web_archive_records.id <= ?" +
+				" AND web_archive_records.site_id IS NULL" +
+				" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+				" AND related_hosts.hrwa_manager_todo = 'NEW'"
 			);
 			
 			for(currentRecordRetrievalOffset = 0, rowsUpdated = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.regularMaintenanceMySQLRowRetrievalSize) {
+				System.out.println("Linking web archive records to NEW related hosts. MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " (" + rowsUpdated + " rows updated so far)...");
 				pstmt.setLong(1, currentRecordRetrievalOffset);
 				pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
 				rowsUpdated += pstmt.executeUpdate();
-				
-				System.out.println("Linking web archive records to NEW related hosts..." + (int)(100*currentRecordRetrievalOffset/maxWebArchiveRecordMySQLId) + "% complete (" + rowsUpdated + " rows updated so far)...");
 			}
+			HrwaManager.writeToLog("Linking web archive records to NEW related hosts -- Done! " +
+					"Affected rows: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
 			
-			HrwaManager.writeToLog("Linking web archive records to NEW related hosts...100% complete!\nDone!\n" +
-					"Total number of rows updated: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
+			totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsUpdated;
 			
 			pstmt.close();
 			
-			//One all of this updating is done, set the hrwa_manager_todo status to NULL for all related_hosts that were previously marked as NEW 
-			
+			//Once all of this updating is done, set the hrwa_manager_todo status to NULL for all related hosts that were previously marked as NEW 
 			pstmt = conn.prepareStatement("UPDATE related_hosts SET hrwa_manager_todo = NULL WHERE hrwa_manager_todo = 'NEW'");
-			HrwaManager.writeToLog("Total number of related hosts updated: " + pstmt.executeUpdate(), true, HrwaManager.LOG_TYPE_STANDARD);
+			HrwaManager.writeToLog("Total number of hrwa_manager_todo='NEW' related_hosts reset to NULL: " + pstmt.executeUpdate(), true, HrwaManager.LOG_TYPE_STANDARD);
+			
 		} else {
 			HrwaManager.writeToLog("No NEW related hosts found, so no related-hosts-related updates were necessary.", true, HrwaManager.LOG_TYPE_STANDARD);
 		}
 		
+		//For UPDATED sites, we'll also update the archive records that are related to these updated sites
+		//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns
+		
+		//Get number of UPDATED sites.  If > 0, then we want to mark all linked web archive records as UPDATED
+		if(MySQLHelper.getSitesMap("WHERE sites.hrwa_manager_todo = 'UPDATED'").size() > 0) {
+		
+			pstmt = conn.prepareStatement(
+				"UPDATE web_archive_records" +
+				" INNER JOIN sites ON web_archive_records.site_id = sites.id" +
+				" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
+				" SET web_archive_records.hrwa_manager_todo = 'UPDATED'" +
+				" WHERE" +
+				" web_archive_records.id >= ?" + 
+				" AND web_archive_records.id <= ?" +
+				" AND web_archive_records.site_id IS NOT NULL" +
+				" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+				" AND sites.hrwa_manager_todo = 'UPDATED'" +
+				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE_LIST
+			);
+			
+			for(currentRecordRetrievalOffset = 0, rowsUpdated = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.regularMaintenanceMySQLRowRetrievalSize) {
+				System.out.println("Updating web archive records where associated site has been marked as UPDATED. MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " (" + rowsUpdated + " rows updated so far)...");
+				pstmt.setLong(1, currentRecordRetrievalOffset);
+				pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
+				rowsUpdated += pstmt.executeUpdate();
+			}
+			HrwaManager.writeToLog("Updating web archive records where associated site has been marked as UPDATED -- Done! " +
+			"Affected rows: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
+	
+			totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsUpdated;
+			
+			pstmt.close();
+			
+			//One all of this updating is done, set the hrwa_manager_todo status to NULL for all sites that were previously marked as UPDATED 
+			
+			pstmt = conn.prepareStatement("UPDATE sites SET hrwa_manager_todo = NULL WHERE hrwa_manager_todo = 'UPDATED'");
+			HrwaManager.writeToLog("Total number of hrwa_manager_todo='UPDATED' sites reset to NULL: " + pstmt.executeUpdate(), true, HrwaManager.LOG_TYPE_STANDARD);
+		
+		} else {
+			HrwaManager.writeToLog("No NEW sites found, so no sites-related updates were necessary.", true, HrwaManager.LOG_TYPE_STANDARD);
+		}
 		
 		
+		//Now Scan through all web_archive_records table rows and set hrwa_manager_todo to NULL
+		//for all archive records that should not be indexed.
+		pstmt = conn.prepareStatement(
+			"UPDATE web_archive_records" +
+			" INNER JOIN " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + " ON " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".mimetype_detected =  " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_detected" +
+			" SET hrwa_manager_todo = NULL" +
+			" WHERE" +
+			" web_archive_records.id >= ?" +
+			" AND" +
+			" web_archive_records.id <= ?" +
+			" AND" +
+			" hrwa_manager_todo IS NOT NULL" +
+			" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+			" AND (" +
+				" site_id IS NULL" +
+				" OR " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code NOT IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE_LIST +
+			" )"
+		);
 		
+		for(currentRecordRetrievalOffset = 0, rowsUpdated = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.regularMaintenanceMySQLRowRetrievalSize) {
+			System.out.println("Setting hrwa_manager_todo = NULL for items that we don't want to index. MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " (" + rowsUpdated + " rows updated so far)...");
+			pstmt.setLong(1, currentRecordRetrievalOffset);
+			pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
+			rowsUpdated += pstmt.executeUpdate();
+		}
+		HrwaManager.writeToLog("Setting hrwa_manager_todo = NULL for items that we don't want to index -- Done! " +
+		"Affected rows: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
 		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+		pstmt.close();
 		
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
@@ -189,7 +259,17 @@ public class RegularMaintenanceTask extends HrwaTask {
 				conn.close();
 			} catch (SQLException e) {
 				HrwaManager.writeToLog("Error: Could not close MySQL connection: " + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
+				System.exit(HrwaManager.EXIT_CODE_ERROR);
 			}
+		}
+		
+		//And finally, run SitesToSolrAndMySQLTask IF AND ONLY IF totalNumberOfWebArchiveRecordRowsUpdatedByThisTask > 0
+		//If totalNumberOfWebArchiveRecordRowsUpdatedByThisTask == 0, then that means that there were no updates.
+		if(totalNumberOfWebArchiveRecordRowsUpdatedByThisTask > 0) {
+			HrwaTask mySQLArchiveRecordsToSolrTask = new MySQLArchiveRecordsToSolrTask();
+			mySQLArchiveRecordsToSolrTask.runTask();
+		} else {
+			HrwaManager.writeToLog("No web archive record rows were updated by any of the sub-tasks within RegularMaintenanceTask, so there's no need to run the MySQLArchiveRecordsToSolrTask. Nice! That's a great time-saver!", true, HrwaManager.LOG_TYPE_STANDARD);
 		}
 		
 		writeTaskFooterMessageAndPrintTotalTime();
