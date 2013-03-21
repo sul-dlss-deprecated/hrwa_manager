@@ -25,6 +25,7 @@ public class MySQLHelper {
 	public static final String HRWA_MANAGER_TODO_DELETE = "DELETED";
 	public static final String HRWA_MANAGER_TODO_UPDATED = "UPDATED";
 	public static final String HRWA_MANAGER_TODO_NEW = "NEW";
+	public static final String HRWA_MANAGER_TODO_NOINDEX = "NOINDEX";
 	public static final String HRWA_MANAGER_TODO_FIELD_NAME = "hrwa_manager_todo";
 	
 	private static Connection staticConnWithAutoCommitOn = getNewDBConnection(true);

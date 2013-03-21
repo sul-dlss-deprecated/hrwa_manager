@@ -23,6 +23,7 @@ import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.util.ContentStream;
 import org.apache.solr.handler.extraction.ExtractingParams;
+import org.apache.solr.request.SolrRequestInfo;
 
 import edu.columbia.ldpd.hrwa.HrwaManager;
 
@@ -180,6 +181,22 @@ public class ASFSolrIndexer {
 		}
 		for ( String value : values ) {
 			modifiableSolrParams.add( ExtractingParams.LITERALS_PREFIX + solrFieldName, value );
+		}
+	}
+	
+	public static void deleteAsfDocumentByUniqueIdRecordIdentifier(String recordItentifier, boolean commitImmediately) {
+		//record_identifier
+		try {
+			asfSolrServer.deleteById(recordItentifier);
+			if(commitImmediately) {
+				commit();
+			}
+		} catch (SolrServerException e) {
+			HrwaManager.writeToLog("Error: SolrServerException encountered while attempting to delete the ASF record with record_identifier: " + recordItentifier + "\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+		} catch (IOException e) {
+			HrwaManager.writeToLog("Error: IOException encountered while attempting to delete the ASF record with record_identifier: " + recordItentifier, true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
 		}
 	}
 	

@@ -148,8 +148,10 @@ public class SitesToSolrAndMySQLTask extends HrwaTask {
 	        //And then remove deleted FSF records from Solr
 			for(String singleBibKey : bibKeysOfRecordsToDelete) {
 				String deletionQuery = "<delete><query>bib_key:" + singleBibKey + "</query></delete>";
-				si.executeUpdateQuery(deletionQuery);
+				si.executeUpdateQuery(deletionQuery, false);
 			}
+			
+			si.commit();
 			
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block

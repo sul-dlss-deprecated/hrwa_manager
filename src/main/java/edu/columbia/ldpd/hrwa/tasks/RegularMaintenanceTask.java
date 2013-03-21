@@ -77,6 +77,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 		
 		Connection conn = MySQLHelper.getNewDBConnection(true); //we want auto-commit to be on!
 		PreparedStatement pstmt;
+		ResultSet resultSet;
 		long currentRecordRetrievalOffset;
 		long rowsUpdated;
 		
@@ -91,17 +92,99 @@ public class RegularMaintenanceTask extends HrwaTask {
 				" sites.hrwa_manager_todo = 'DELETED'"
 		);
 		
-		ResultSet resultSet = pstmt.executeQuery();
+		resultSet = pstmt.executeQuery();
 		String relatedHostDeletedSiteConflictMessage = "";
 		while(resultSet.next()) {
 			relatedHostDeletedSiteConflictMessage += "\n- Related host " + resultSet.getString("related_host") + " is pointing to a site that has been marked for deletion: " + resultSet.getString("hoststring");
 		}
 		
+		resultSet.close();
+		
 		if( ! relatedHostDeletedSiteConflictMessage.equals("") ) {
 			HrwaManager.writeToLog("One or more related host / deleted site conflict found:" + relatedHostDeletedSiteConflictMessage + "\nThis problem must be resolved before RegularMaintenanceTask can continue.\nExiting program.", true, HrwaManager.LOG_TYPE_ERROR);
 			System.exit(HrwaManager.EXIT_CODE_ERROR);
 		}
+		
+		//Get number of DELETED sites.  If > 0, then we want to run through MySQL and unlink these sites from their corresponding web archive records, marking each web archive record hrwa_manager_todo field as DELETED 
+		if(MySQLHelper.getSitesMap("WHERE sites.hrwa_manager_todo = 'DELETED'").size() > 0) {
+		
+			pstmt = conn.prepareStatement(
+				"UPDATE web_archive_records" +
+				" INNER JOIN sites ON web_archive_records.hoststring = sites.hoststring" +
+				" SET web_archive_records.site_id = NULL, web_archive_records.hrwa_manager_todo = 'DELETED', web_archive_records.linked_via_related_host = 0" +  
+				" WHERE" + 
+				" web_archive_records.id >= ?" +
+				" AND web_archive_records.id <= ?" +
+				" AND sites.hrwa_manager_todo = 'DELETED'" +
+				" AND web_archive_records.site_id IS NOT NULL" +
+				" AND web_archive_records.hrwa_manager_todo != 'NOINDEX'"
+			);
 			
+			for(currentRecordRetrievalOffset = 0, rowsUpdated = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.regularMaintenanceMySQLRowRetrievalSize) {
+				System.out.println("Unlinking and marking for deletion any web archive records linked to DELETED sites. MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " (" + rowsUpdated + " rows updated so far)...");
+				pstmt.setLong(1, currentRecordRetrievalOffset);
+				pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
+				rowsUpdated += pstmt.executeUpdate();
+			}
+			HrwaManager.writeToLog("Linking web archive records to NEW sites -- Done! " +
+			"Affected rows: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
+			
+			totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsUpdated;
+	
+			pstmt.close();
+			
+			//And now do a Solr doc deletion for all MySQL web_archive_records marked as DELETED
+			pstmt = conn.prepareStatement(
+				"SELECT record_identifier FROM web_archive_records" +
+				" WHERE" + 
+				" web_archive_records.id >= ?" +
+				" AND web_archive_records.id <= ?" +
+				" AND hrwa_manager_todo = 'DELETED'"
+			);
+			
+			for(currentRecordRetrievalOffset = 0, rowsUpdated = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.regularMaintenanceMySQLRowRetrievalSize) {
+				System.out.println("Deleting solr docs that are defined as DELETED in the web_archive_records table. MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " (" + rowsUpdated + " rows updated so far)...");
+				
+				pstmt.setLong(1, currentRecordRetrievalOffset);
+				pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
+				
+				resultSet = pstmt.executeQuery();
+				while(resultSet.next()) {
+					ASFSolrIndexer.deleteAsfDocumentByUniqueIdRecordIdentifier(resultSet.getString(0), false);
+				}
+				resultSet.close();
+				ASFSolrIndexer.commit();
+			}
+			
+			pstmt.close();
+			
+			//And now that we've successfully deleted all of these unwawnted mysql records from solr, let's mark these hrwa_manager_todo = DELETED web archive records as hrwa_manager_todo = NULL
+			pstmt = conn.prepareStatement(
+				"UPDATE web_archive_records" +
+				" SET web_archive_records.hrwa_manager_todo = NULL" +  
+				" WHERE" + 
+				" web_archive_records.id >= ?" +
+				" AND web_archive_records.id <= ?" +
+				" AND web_archive_records.hrwa_manager_todo = 'DELETED'"
+			);
+			
+			for(currentRecordRetrievalOffset = 0, rowsUpdated = 0; currentRecordRetrievalOffset < maxWebArchiveRecordMySQLId; currentRecordRetrievalOffset += HrwaManager.regularMaintenanceMySQLRowRetrievalSize) {
+				System.out.println("Unlinking and marking for deletion any web archive records linked to DELETED sites. MySQL batch " + (currentRecordRetrievalOffset/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " of " + (maxWebArchiveRecordMySQLId/HrwaManager.regularMaintenanceMySQLRowRetrievalSize) + " (" + rowsUpdated + " rows updated so far)...");
+				pstmt.setLong(1, currentRecordRetrievalOffset);
+				pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
+				rowsUpdated += pstmt.executeUpdate();
+			}
+			HrwaManager.writeToLog("Linking web archive records to NEW sites -- Done! " +
+			"Affected rows: " + rowsUpdated, true, HrwaManager.LOG_TYPE_STANDARD);
+			
+			totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsUpdated;
+	
+			pstmt.close();
+			
+		} else {
+			HrwaManager.writeToLog("No DELETED sites found, so no deleted-sites-related updates were necessary.", true, HrwaManager.LOG_TYPE_STANDARD);
+		}
+		
 		//Get number of NEW sites.  If > 0, then we want to go through all unlinked web archive records and link them to a site
 		if(MySQLHelper.getSitesMap("WHERE sites.hrwa_manager_todo = 'NEW'").size() > 0) {
 		
@@ -113,7 +196,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 				" web_archive_records.id >= ?" +
 				" AND web_archive_records.id <= ?" +
 				" AND web_archive_records.site_id IS NULL" + 
-				" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+				" AND web_archive_records.hrwa_manager_todo != 'NOINDEX'" +
 				" AND sites.hrwa_manager_todo = 'NEW'"
 			);
 			
@@ -153,7 +236,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 				" web_archive_records.id >= ?" +
 				" AND web_archive_records.id <= ?" +
 				" AND web_archive_records.site_id IS NULL" +
-				" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+				" AND web_archive_records.hrwa_manager_todo != 'NOINDEX'" +
 				" AND related_hosts.hrwa_manager_todo = 'NEW'"
 			);
 			
@@ -193,7 +276,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 				" web_archive_records.id >= ?" + 
 				" AND web_archive_records.id <= ?" +
 				" AND web_archive_records.site_id IS NOT NULL" +
-				" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+				" AND web_archive_records.hrwa_manager_todo != 'NOINDEX'" +
 				" AND sites.hrwa_manager_todo = 'UPDATED'" +
 				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE_LIST
 			);
@@ -220,7 +303,6 @@ public class RegularMaintenanceTask extends HrwaTask {
 			HrwaManager.writeToLog("No NEW sites found, so no sites-related updates were necessary.", true, HrwaManager.LOG_TYPE_STANDARD);
 		}
 		
-		
 		//Now Scan through all web_archive_records table rows and set hrwa_manager_todo to NULL
 		//for all archive records that should not be indexed.
 		pstmt = conn.prepareStatement(
@@ -233,7 +315,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 			" web_archive_records.id <= ?" +
 			" AND" +
 			" hrwa_manager_todo IS NOT NULL" +
-			" AND web_archive_records.hrwa_manager_todo != 'DELETED'" +
+			" AND web_archive_records.hrwa_manager_todo != 'NOINDEX'" +
 			" AND (" +
 				" site_id IS NULL" +
 				" OR " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IS NULL" +
@@ -263,9 +345,6 @@ public class RegularMaintenanceTask extends HrwaTask {
 				System.exit(HrwaManager.EXIT_CODE_ERROR);
 			}
 		}
-		
-		//Next, we want to DELETE all archive records marked for deletion
-		
 		
 		//And finally, run SitesToSolrAndMySQLTask IF AND ONLY IF totalNumberOfWebArchiveRecordRowsUpdatedByThisTask > 0
 		//If totalNumberOfWebArchiveRecordRowsUpdatedByThisTask == 0, then that means that there were no updates.

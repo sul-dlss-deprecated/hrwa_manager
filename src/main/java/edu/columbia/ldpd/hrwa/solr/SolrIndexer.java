@@ -170,10 +170,20 @@ public class SolrIndexer {
         return new FileEntity(content,UTF8_XML);
     }
     
-    public void executeUpdateQuery(String queryToExecute){
+    public void executeUpdateQuery(String queryToExecute, boolean commitImmediately){
     	try {
     		empty(post(queryToExecute));
-			empty(post(COMMIT_MSG));
+    		if(commitImmediately) {
+    			commit();
+    		}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    }
+    
+    public void commit() {
+    	try {
+    		empty(post(COMMIT_MSG));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
