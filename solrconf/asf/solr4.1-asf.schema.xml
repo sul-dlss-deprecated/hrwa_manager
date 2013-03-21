@@ -154,7 +154,7 @@
 
    <field name="title" type="text_general" indexed="true" stored="true" multiValued="true"/>
    <field name="rd_subject" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_description" type="text_general" indexed="true" stored="true"/>
+   <field name="rd_description" type="text_general" indexed="true" stored="true" multivalued="true"/>
    <field name="rd_comments" type="text_general" indexed="true" stored="true"/>
    <field name="rd_author" type="text_general" indexed="true" stored="true"/>
    <field name="rd_keywords" type="text_general" indexed="true" stored="true"/>
