@@ -18,6 +18,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 
+import edu.columbia.ldpd.hrwa.HrwaManager;
 import edu.columbia.ldpd.hrwa.TimeStringFormat;
 
 
@@ -27,7 +28,6 @@ public class SolrIndexer {
     public static final String ERROR_PATH_KEY = "ERROR_PATH";
     public static final String LOG_PATH_KEY = "LOG_PATH";
     public static final String BATCH_SIZE_KEY = "BATCH_SIZE";
-    public static final String SOLR_UPDATE_URL_KEY = "SOLR_UPDATE_URL";
     private static final String COMMIT_MSG = "<commit />";
     private static Pattern SERVER_NAME = Pattern.compile("^https?://(localhost|(([^.]+)))\\.{0,1}.*");
     String emailSender;
@@ -44,7 +44,7 @@ public class SolrIndexer {
         errorReportsPath = config.getProperty(ERROR_PATH_KEY);
         logPath = config.getProperty(LOG_PATH_KEY);
         updateBatchSize = Integer.parseInt(config.getProperty(BATCH_SIZE_KEY));
-        solrUpdateUrl = config.getProperty(SOLR_UPDATE_URL_KEY);
+        solrUpdateUrl = HrwaManager.fsfSolrUrl + "/update";
         serverName = getServerName(solrUpdateUrl);
         client = new DefaultHttpClient();
     }

@@ -68,7 +68,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 		
 		//Update sites and related hosts tables to latest versions
 		HrwaTask sitesToSolrAndMySQLTask = new SitesToSolrAndMySQLTask();
-		//sitesToSolrAndMySQLTask.runTask();
+		sitesToSolrAndMySQLTask.runTask();
 		
 		//Update unlinked web archive records that should be linked to new sites (linked by sites table hoststring or related_hosts table entries)
 		//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns

@@ -81,6 +81,7 @@ public class HrwaManager {
 	public static int				regularMaintenanceMySQLRowRetrievalSize			= 1000; //default, can be overridden
 	
 	public static String			asfSolrUrl										= ""; //default, should be overridden
+	public static String			fsfSolrUrl										= ""; //default, should be overridden
 	
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
 	public static long maxMemoryThresholdInBytesForStartingNewThreadProcesses = (int)(maxAvailableMemoryInBytes*.75); //default, might be overridden
@@ -451,6 +452,11 @@ public class HrwaManager {
 	        	System.out.println("An ASF Solr URL has been supplied.");
 	        }
 	        
+	        if ( cmdLine.hasOption( "fsfsolrurl") ) {
+	        	fsfSolrUrl = cmdLine.getOptionValue( "fsfsolrurl" );
+	        	System.out.println("An FSF Solr URL has been supplied.");
+	        }
+	        
 	        //Test Task
 	        if( cmdLine.hasOption( "talktocliotest") ) {
 	        	HrwaManager.runTalkToClioTestTask = true;
@@ -663,6 +669,13 @@ public class HrwaManager {
                 .hasArg()
                 .withDescription( "ASF Solr URL to connect to." )
                 .create( "asfsolrurl" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "string" )
+                .hasArg()
+                .withDescription( "FSF Solr URL to connect to." )
+                .create( "fsfsolrurl" )
         );
         
     }
