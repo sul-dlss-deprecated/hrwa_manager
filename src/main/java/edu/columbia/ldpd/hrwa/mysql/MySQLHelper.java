@@ -565,10 +565,11 @@ public class MySQLHelper {
 					//Add new records
 					PreparedStatement pstmt2 = conn.prepareStatement(
 							"UPDATE `" + HrwaManager.MYSQL_SITES_TABLE_NAME + "` " +
-							"SET `creator_name` = ?, `hoststring` = ?, " +
-							"`organization_type` = ?, `organization_based_in` = ?, `geographic_focus` = ?, " +
-							" `language` = ?, `original_urls` = ?, `marc_005_last_modified` = ?, `" + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + "` = ? " +
-							"WHERE bib_key = ?;"
+							" SET `creator_name` = ?, `hoststring` = ?, " +
+							" `organization_type` = ?, `organization_based_in` = ?, `geographic_focus` = ?, " +
+							" `language` = ?, `original_urls` = ?, `marc_005_last_modified` = ?," +
+							" " + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = CASE WHEN " + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_NEW + "' THEN '" + MySQLHelper.HRWA_MANAGER_TODO_NEW + "' ELSE '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "' END" +
+							" WHERE bib_key = ?;"
 					);
 					
 					for(HrwaSiteRecord singleRecord : existingRrecordsToUpdate) {
@@ -580,8 +581,7 @@ public class MySQLHelper {
 						pstmt2.setString(6, singleRecord.getPipeDelimitedMultiValuedFieldString("language"));
 						pstmt2.setString(7, singleRecord.getPipeDelimitedMultiValuedFieldString("original_urls"));
 						pstmt2.setString(8, singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
-						pstmt2.setString(9, MySQLHelper.HRWA_MANAGER_TODO_UPDATED);
-						pstmt2.setString(10, singleRecord.getSingleValuedFieldValue("bib_key"));
+						pstmt2.setString(9, singleRecord.getSingleValuedFieldValue("bib_key"));
 						
 						System.out.println("Updating bib_key record " + singleRecord.getSingleValuedFieldValue("bib_key") + " with value: " + singleRecord.getSingleValuedFieldValue("marc_005_last_modified"));
 						
