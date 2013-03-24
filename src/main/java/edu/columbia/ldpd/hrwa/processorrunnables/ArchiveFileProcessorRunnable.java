@@ -420,7 +420,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
             checkin(buffer);
         } catch (IOException e) {
             e.printStackTrace();
-            HrwaManager.writeToLog("Error: Could not write file (" + blobFile.getPath() + ") to disk.", true, HrwaManager.LOG_TYPE_ERROR);
+            HrwaManager.writeToLog("Error: Could not write BLOB file (" + blobFile.getPath() + ") to disk.\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
         }
 
         String blob_path_with_header_extension = blobFile.getPath() + ".header";
@@ -430,7 +430,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
             FileUtils.writeStringToFile(new File(blob_path_with_header_extension), httpHeaderString);
         } catch (IOException e) {
             e.printStackTrace();
-            HrwaManager.writeToLog("Error: Could not write file (" + blob_path_with_header_extension + ") to disk.", true, HrwaManager.LOG_TYPE_ERROR);
+            HrwaManager.writeToLog("Error: Could not write HEADER file (" + blob_path_with_header_extension + ") to disk.\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
         }
         
 		return blobFile;
