@@ -98,6 +98,10 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 					if(MySQLHelper.archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(currentArcFileBeingProcessed.getName())) {
 						HrwaManager.writeToLog("Skipping the MySQL indexing of file (" + currentArcFileBeingProcessed.getName() + ") because it has already been fully indexed", true, HrwaManager.LOG_TYPE_NOTICE);
 					} else {
+						//This archive file has NOT been fully indexed into MySQL.
+						//To ensure that we don't have any partially-indexed records in MySQL, we'll delete any partially indexed records from this file.
+						//This will allow us to safely stop and start the ArchiveToMySQLTask any time.
+						MySQLHelper.deleteWebArchiveRecordsByFile(currentArcFileBeingProcessed.getName());
 						processArchiveFile(currentArcFileBeingProcessed);
 					}
 				} else {
@@ -146,7 +150,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		
 			this.mySQLConn.commit(); //need to commit explicitly because auto-commit is turned off for this.mySQLConn
 		} catch (SQLException e) {
-			HrwaManager.writeToLog("An SQL error occurred while attempting to add the following archive file to the fully indexed archive files table" + archiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog("An SQL error occurred while attempting to add the following archive file to the fully indexed archive files table" + archiveFileName + "\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
 			System.exit(HrwaManager.EXIT_CODE_ERROR);
 		}
@@ -211,7 +215,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			try {
 				executeAndCommitLatestRecordBatch(); //make sure to commit any remaining records that didn't get committed as part of a regular batch!
 			} catch (SQLException e) {
-				HrwaManager.writeToLog("An error occurred while attempting to commit the last batch of records for archive file: " + archiveFileName, true, HrwaManager.LOG_TYPE_ERROR);
+				HrwaManager.writeToLog("An error occurred while attempting to commit the last batch of records for archive file: " + archiveFileName + "\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
 				e.printStackTrace();
 				System.exit(HrwaManager.EXIT_CODE_ERROR);
 			}
@@ -219,14 +223,13 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			addNewArchiveFileToFullyIndexedArchiveFilesTable(archiveFileName);
 		
 		} catch (IOException e) {
-			HrwaManager.writeToLog("An error occurred while trying to read in the archive file at " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
-			HrwaManager.writeToLog(e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
+			HrwaManager.writeToLog("An error occurred while trying to read in the archive file at " + archiveFile.getPath() + "\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
 			HrwaManager.writeToLog("Skipping " + archiveFile.getPath() + " due to the read error. Moving on to the next file...", true, HrwaManager.LOG_TYPE_ERROR);
 		} finally {
 			try {
 				archiveReader.close();
 			} catch (IOException e) {
-				HrwaManager.writeToLog("An error occurred while trying to close the ArchiveReader for file: " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_ERROR);
+				HrwaManager.writeToLog("An error occurred while trying to close the ArchiveReader for file: " + archiveFile.getPath() + "\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
 				e.printStackTrace();
 			}
 		}
@@ -379,7 +382,13 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		
 		HrwaManager.writeToLog("Notice: Archive file claimed by ArchiveFileProcessorRunnable " + this.getUniqueRunnableId() + " (" + archiveFile.getName() + ")", true, HrwaManager.LOG_TYPE_NOTICE);
 		
-		if(isProcessingAnArchiveFile) {
+		boolean isProcessing = false;
+		
+		synchronized (isProcessingAnArchiveFile) {
+			isProcessing = isProcessingAnArchiveFile;
+		}
+		
+		if(isProcessing) {
 			HrwaManager.writeToLog("Error: ArchiveRecordProcessorRunnable with id " + this.uniqueRunnableId + " cannot accept a new archive file to process because isProcessingAnArchiveFile == true. This error should never appear if things were coded properly.", true, HrwaManager.LOG_TYPE_ERROR);
 		} else {
 			synchronized (isProcessingAnArchiveFile) {

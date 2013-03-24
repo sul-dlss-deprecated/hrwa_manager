@@ -709,5 +709,24 @@ public class MySQLHelper {
         
         return false;
 	}
+	
+	public static void deleteWebArchiveRecordsByFile(String nameOfArchiveFile) {
+		try {
+			
+			PreparedStatement pstmt1 = staticConnWithAutoCommitOn.prepareStatement("DELETE FROM web_archive_records WHERE archive_file = ?");
+			pstmt1.setString(1, nameOfArchiveFile);
+			int numRowsDeleted = pstmt1.executeUpdate();
+			pstmt1.close();
+			
+			if(numRowsDeleted > 0) {
+				HrwaManager.writeToLog("Found partially indexed archive file! [" + nameOfArchiveFile + "]. Deleting partially indexed records.  Number of partially indexed records deleted: " + numRowsDeleted, true, HrwaManager.LOG_TYPE_STANDARD);
+			}
+			
+		} catch (SQLException e) {
+			HrwaManager.writeToLog("An error occurred while deleting web archive records by file: " + nameOfArchiveFile + "\n" + e.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
+			e.printStackTrace();
+			System.exit(0);
+		}
+	}
 
 }
