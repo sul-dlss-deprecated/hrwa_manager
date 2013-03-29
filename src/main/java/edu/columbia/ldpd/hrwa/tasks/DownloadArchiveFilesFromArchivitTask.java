@@ -32,6 +32,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 	
 	private String archiveFileDownloadDomain = "https://www.archive-it.org";
 	private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=" + HrwaManager.archiveItCollectionId;
+	//HRWA Collection: 1080
 	
 	private static String pathToTempDownloadDir = HrwaManager.tmpDirPath + File.separatorChar + "downloads";
 
