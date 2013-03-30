@@ -94,29 +94,36 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		
 		while((latestFileToProcess = sharedReferenceToConcurrentLinkedQueueOfArchiveFiles.poll()) != null) {
 			
-			while(HrwaManager.getCurrentAppMemoryUsageInBytes() > HrwaManager.maxMemoryThresholdInBytesForStartingNewThreadProcesses) {
-				
-				//If current memory usage is too high, wait until it's lower before processing another file on this thread
-				try {
-					Thread.sleep(5000);
-					System.out.println("Thread " + this.uniqueRunnableId + ": sleeping for 5 seconds because current memory usage is too high to safely start an additional simutaneous file process.  Current memory usage: " + HrwaManager.bytesToMegabytes(HrwaManager.getCurrentAppMemoryUsageInBytes()) + " MB");
-				}
-				catch (InterruptedException e) { e.printStackTrace(); }
-			}
+			try {
 			
-			if( ! HrwaManager.previewMode ) {
-				
-				if(MySQLHelper.archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(latestFileToProcess.getName())) {
-					HrwaManager.writeToLog("Skipping the MySQL indexing of file (" + latestFileToProcess.getName() + ") because it has already been fully indexed", true, HrwaManager.LOG_TYPE_NOTICE);
-				} else {
-					//This archive file has NOT been fully indexed into MySQL.
-					//To ensure that we don't have any partially-indexed records in MySQL, we'll delete any partially indexed records from this file.
-					//This will allow us to safely stop and start the ArchiveToMySQLTask any time.
-					MySQLHelper.deleteWebArchiveRecordsByFile(latestFileToProcess.getName());
-					processArchiveFile(latestFileToProcess);
+				while(HrwaManager.getCurrentAppMemoryUsageInBytes() > HrwaManager.maxMemoryThresholdInBytesForStartingNewThreadProcesses) {
+					
+					//If current memory usage is too high, wait until it's lower before processing another file on this thread
+					try {
+						Thread.sleep(5000);
+						System.out.println("Thread " + this.uniqueRunnableId + ": sleeping for 5 seconds because current memory usage is too high to safely start an additional simutaneous file process.  Current memory usage: " + HrwaManager.bytesToMegabytes(HrwaManager.getCurrentAppMemoryUsageInBytes()) + " MB");
+					}
+					catch (InterruptedException e) { e.printStackTrace(); }
 				}
-			} else {
-				HrwaManager.writeToLog("PREVIEWING the MySQL indexing of file (" + latestFileToProcess.getName() + "). No actual database changes will be made.", true, HrwaManager.LOG_TYPE_NOTICE);
+				
+				if( ! HrwaManager.previewMode ) {
+					
+					if(MySQLHelper.archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(latestFileToProcess.getName())) {
+						HrwaManager.writeToLog("Skipping the MySQL indexing of file (" + latestFileToProcess.getName() + ") because it has already been fully indexed", true, HrwaManager.LOG_TYPE_NOTICE);
+					} else {
+						//This archive file has NOT been fully indexed into MySQL.
+						//To ensure that we don't have any partially-indexed records in MySQL, we'll delete any partially indexed records from this file.
+						//This will allow us to safely stop and start the ArchiveToMySQLTask any time.
+						MySQLHelper.deleteWebArchiveRecordsByFile(latestFileToProcess.getName());
+						processArchiveFile(latestFileToProcess);
+					}
+				} else {
+					HrwaManager.writeToLog("PREVIEWING the MySQL indexing of file (" + latestFileToProcess.getName() + "). No actual database changes will be made.", true, HrwaManager.LOG_TYPE_NOTICE);
+				}
+				
+			} catch (Exception ex) {
+				//Catching any random uncaught exception related to this file so that one bad file doesn't crash this thread
+				HrwaManager.writeToLog("An unexpected error occurred while processing the file [" + latestFileToProcess.getName() + "].  Moving onto the next file.", true, HrwaManager.LOG_TYPE_ERROR);
 			}
 			
 		}
