@@ -186,7 +186,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 		
 		System.gc(); //Must garbage collect to make sure that closing file handles close themselves quickly enough.
 		
-		HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
+		HrwaManager.writeToLog(HrwaManager.getCurrentAppMemoryUsageMessage(), true, HrwaManager.LOG_TYPE_MEMORY);
 		
 		if(ASFSolrIndexer.commit()) {
 			// // If everything committed successfully, mark this set of MySQL

@@ -688,7 +688,7 @@ public class HrwaManager {
 		return Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
 	}
 	
-	public static String getCurrentAppMemoryUsageString() {
+	public static String getCurrentAppMemoryUsageMessage() {
 		
 		int bytesInAMegabyte = 1048576;
 		

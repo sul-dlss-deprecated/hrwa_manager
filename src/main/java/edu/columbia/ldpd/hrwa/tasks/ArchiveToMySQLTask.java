@@ -22,6 +22,8 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -57,13 +59,13 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	private String[] validArchiveFileExtensions = {"arc.gz", "warc.gz"};
 	
 	//How many threads will we create?  HrwaManager.maxUsableProcessors
-	private ArchiveFileProcessorRunnable[] archiveRecordProcessorRunnables;
-	Future[] archiveRecordProcessorFutures;
+	private ArrayList<ArchiveFileProcessorRunnable> archiveRecordProcessorRunnables;
+	ArrayList<Future<ArchiveFileProcessorRunnable>> archiveRecordProcessorFutures;
 	ExecutorService fixedThreadPoolExecutorService;
 
 	public ArchiveToMySQLTask() {
-		archiveRecordProcessorRunnables = new ArchiveFileProcessorRunnable[HrwaManager.maxUsableProcessors];
-		archiveRecordProcessorFutures = new Future[HrwaManager.maxUsableProcessors];
+		archiveRecordProcessorRunnables = new ArrayList<ArchiveFileProcessorRunnable>(HrwaManager.maxUsableProcessors);
+		archiveRecordProcessorFutures = new ArrayList<Future<ArchiveFileProcessorRunnable>>(HrwaManager.maxUsableProcessors);
 		fixedThreadPoolExecutorService = Executors.newFixedThreadPool(HrwaManager.maxUsableProcessors);
 	}
 	
@@ -71,17 +73,17 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		writeTaskHeaderMessageAndSetStartTime();
 		
-		//Scan through warc file directory and generate an alphabetically-sorted list of all warc files to index
-		File[] archiveFilesToProcess = getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(HrwaManager.archiveFileDirPath, validArchiveFileExtensions);
+		//Scan through warc file directory and generate an alphabetically-sorted queue of all warc files to index
+		ArrayList<File> listOfArchiveFiles = getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(HrwaManager.archiveFileDirPath, validArchiveFileExtensions);
 		
-		int numberOfArchiveFilesToProcess = archiveFilesToProcess.length;
+		int numberOfArchiveFilesToProcess = listOfArchiveFiles.size();
 		
 		if(numberOfArchiveFilesToProcess < 1) {
 			HrwaManager.writeToLog("No files found for indexing in directory: " + HrwaManager.archiveFileDirPath, true, HrwaManager.LOG_TYPE_ERROR);
 			System.exit(HrwaManager.EXIT_CODE_ERROR);
 		}
 		
-		HrwaManager.writeToLog("Number of archive files to process: " + archiveFilesToProcess.length, true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Number of archive files to process: " + numberOfArchiveFilesToProcess, true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		//Create necessary MySQL tables
 		try {
@@ -105,98 +107,37 @@ public class ArchiveToMySQLTask extends HrwaTask {
 			HrwaManager.writeToLog("Error: Could not create one of the required MySQL tables.", true, HrwaManager.LOG_TYPE_ERROR);
 		}
 		
-		initializeArchiveRecordProcessorThreads();
+		//Now we'll turn this list into a ConcurrentLinkedQueue<File>.  It's thread-safe!  Nice!  
+		ConcurrentLinkedQueue<File> concurrentLinkedQueueOfArchiveFiles = new ConcurrentLinkedQueue<File>(listOfArchiveFiles);
 		
-		//Iterate through and process all archive files
-		for(int i = 0; i < numberOfArchiveFilesToProcess; i++) {
-			HrwaManager.writeToLog(	"Processing archive file " + (i+1) + " of " + numberOfArchiveFilesToProcess + "\n" +
-									"-- Name of archive file: " + archiveFilesToProcess[i].getName() + "\n" +
-									"-- Total number of relevant archive records processed so far (at this exact moment): " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(),
-									true, HrwaManager.LOG_TYPE_STANDARD);
+		initializeArchiveRecordProcessorThreads(concurrentLinkedQueueOfArchiveFiles);
+		
+		
+		//Have this main thread wait around until all processors are done completing all tasks
+		//Poll the processor every once in a while
+		while(someArchiveRecordProcessorsAreStillRunning()) {
 			
-			processSingleArchiveFile(archiveFilesToProcess[i]);
-			
-			System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
-		}
-		
-		//CLEANUP TIME
-		
-		//Wait until all of the runnables are done processing.
-		HrwaManager.writeToLog("Preparing to shut down processors...", true, HrwaManager.LOG_TYPE_STANDARD);
-		HrwaManager.writeToLog("Allowing processors to complete their final tasks...", true, HrwaManager.LOG_TYPE_STANDARD);
-		while( someArchiveRecordProcessorsAreStillRunning() ) {
 			try {
-				System.out.println("Waiting for final archive file processing to complete before shut down...");
-				Thread.sleep(1000);
+				Thread.sleep(5000);
 			}
 			catch (InterruptedException e) { e.printStackTrace(); }
+			
+			System.out.println("Total number of archive records processed: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment()); //This doesn't need to be logged.
+			System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
+			HrwaManager.writeToLog(HrwaManager.getCurrentAppMemoryUsageMessage(), true, HrwaManager.LOG_TYPE_MEMORY); //This doesn't need to be logged.
+			
 		}
 		
-		HrwaManager.writeToLog("All ArchiveRecordProcessorRunnables have finished processing!  Shutting down all " + HrwaManager.maxUsableProcessors + " processor threads.", true, HrwaManager.LOG_TYPE_STANDARD);
+		//All of the processor threads have completed!
+		checkForAndLogAnyChildThreadArchiveRecordProcessorsExceptions();
 		
-		shutDownArchiveRecordProcessorThreads();
+		//Now we need to shut down the thread executor service
+		shutDownThreadExecutorService();
 		
 		HrwaManager.writeToLog("Total number of archive records processed: " + this.getTotalNumberOfRelevantArchiveRecordsProcessedAtThisExactMoment(), true, HrwaManager.LOG_TYPE_STANDARD);
+		System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
 		
 		writeTaskFooterMessageAndPrintTotalTime();
-		
-	}
-	
-	/**
-	 * Passes the archiveFile to one of the available ArchiveFileProcessorRunnable worker threads.
-	 * If no worker threads are currently available, this method waits until one is available.
-	 * @param arcRecord
-	 */
-	public void processSingleArchiveFile(File archiveFile) {
-		
-		boolean lookingForAvailableProcessorThread = true;
-		
-		long currentMemoryUsage;
-		while(lookingForAvailableProcessorThread) {
-			
-			currentMemoryUsage = HrwaManager.getCurrentAppMemoryUsageInBytes();
-			
-			if(currentMemoryUsage > HrwaManager.maxMemoryThresholdInBytesForStartingNewThreadProcesses) {
-				
-				//If current memory usage is too high, wait until it's lower before processing another file on another thread
-				try {
-					Thread.sleep(100);
-					//System.out.println("Sleeping for X ms because no threads are available for processing...");
-					if(HrwaManager.verbose) {
-						System.out.println("HrwaManager ArchiveToMySQL Task is sleeping for 100 ms because memory usage is currently too high to concurrently start processing an additional file.  Waiting until usage is lower... (Current memory usage: " + HrwaManager.bytesToMegabytes(currentMemoryUsage) + " MB)");
-					}
-				}
-				catch (InterruptedException e) { e.printStackTrace(); }
-				
-			} else {
-				
-				//Otherwise process normally and wait until another thread is available do work
-				
-				for(ArchiveFileProcessorRunnable singleProcessorRunnable : archiveRecordProcessorRunnables) {
-					if( ! singleProcessorRunnable.isProcessingAnArchiveFile() ) {
-						lookingForAvailableProcessorThread = false;
-						
-						singleProcessorRunnable.queueArchiveFileForProcessing(archiveFile);
-						// Uncomment the line below to perform single-threaded
-						// debugging/processing (by directly calling the
-						// processArchiveFile() method). If you do uncomment this
-						// line, then you should comment out the line above (because
-						// you no longer want to queue archive file processing).
-						//singleProcessorRunnable.processArchiveFile(archiveFile);
-						break;
-					}
-				}
-				
-				try {
-					Thread.sleep(100);
-					if(HrwaManager.verbose) {
-						System.out.println("HrwaManager ArchiveToMySQL Task is sleeping for 100 ms because no threads are currently available for processing...");
-					}
-				}
-				catch (InterruptedException e) { e.printStackTrace(); }
-			}
-			
-		}
 		
 	}
 	
@@ -212,55 +153,55 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	}
 	
 	/**
+	 * This method is good to run at the end of the program, once all threads have completed execution.
+	 * It seems that uncaught exceptions in child threads aren't necessarily propagated to the parent thread,
+	 * so this will at least let us know if we ran into any exceptions. 
+	 * @throws InterruptedException
+	 * @throws ExecutionException
+	 */
+	public void checkForAndLogAnyChildThreadArchiveRecordProcessorsExceptions() {
+		
+		for(int i = 0; i < archiveRecordProcessorFutures.size(); i++) {
+			try {
+				archiveRecordProcessorFutures.get(i).get(); //.get() method will throw any uncaught exceptions from this thread
+			} catch (Exception e) {
+				HrwaManager.writeToLog("During the final child thread exception check, an uncaught exception was found on thread " + i + ": " + e.getMessage(),  true, HrwaManager.LOG_TYPE_ERROR);
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	/**
 	 * Returns true if at least one of the processors is still running.
 	 * @return
 	 */
 	public boolean someArchiveRecordProcessorsAreStillRunning() {
-		for(ArchiveFileProcessorRunnable singleProcessor : archiveRecordProcessorRunnables) {
-			if(singleProcessor.isProcessingAnArchiveFile()) {
-				System.out.println("Thread " + singleProcessor.getUniqueRunnableId() + " is still running. --> " + singleProcessor.getNumRelevantArchiveRecordsProcessed());
+		
+		for(Future<ArchiveFileProcessorRunnable> singleArchiveRecordProcessorFuture : archiveRecordProcessorFutures) {
+			if( ! singleArchiveRecordProcessorFuture.isDone() ) {
 				return true;
 			}
 		}
+		
 		return false;
 	}
 	
-	public void initializeArchiveRecordProcessorThreads() {
+	public void initializeArchiveRecordProcessorThreads(ConcurrentLinkedQueue<File> concurrentLinkedQueueOfArchiveFiles) {
 		
 		HrwaManager.writeToLog("Starting processor threads...", true, HrwaManager.LOG_TYPE_STANDARD);
 		
 		for(int i = 0; i < HrwaManager.maxUsableProcessors; i++) {
 			//Create thread
-			archiveRecordProcessorRunnables[i] = new ArchiveFileProcessorRunnable(i);
+			archiveRecordProcessorRunnables.add(i, new ArchiveFileProcessorRunnable(i, concurrentLinkedQueueOfArchiveFiles));
 			
 			//And submit it to the fixedThreadPoolExecutorService so that it will run.
 			//The submit method will return a Future that we can use to check the runnable's
 			//status (isDone()) or cancel the task (cancel()).
-			archiveRecordProcessorFutures[i] = fixedThreadPoolExecutorService.submit(archiveRecordProcessorRunnables[i]);
+			 
+			archiveRecordProcessorFutures.add(i, (Future<ArchiveFileProcessorRunnable>)fixedThreadPoolExecutorService.submit(archiveRecordProcessorRunnables.get(i)));
 		}
 		
 		HrwaManager.writeToLog("All " + HrwaManager.maxUsableProcessors + " processors started!", true, HrwaManager.LOG_TYPE_STANDARD);
-	}
-	
-	public void shutDownArchiveRecordProcessorThreads() {
-		
-		for(ArchiveFileProcessorRunnable singleRunnable : archiveRecordProcessorRunnables) {
-			//Shut down each of the runnables
-			singleRunnable.stop();
-			System.out.println("STOPPING RUNNABLE!");
-		}
-		
-		//Shut down the executor service
-		
-		fixedThreadPoolExecutorService.shutdown();
-	    try {
-			fixedThreadPoolExecutorService.awaitTermination(30, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		fixedThreadPoolExecutorService.shutdownNow();
-		
-		HrwaManager.writeToLog("All " + HrwaManager.maxUsableProcessors + " threads have been shut down.", true, HrwaManager.LOG_TYPE_STANDARD);
 	}
 	
 	////////////////////////////////
@@ -268,13 +209,13 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	////////////////////////////////
 	
 	/**
-	 * Recursively scans a directory, collecting Files that are matched by the passed fileExtensionFilter. Returns the resulting File[],
-	 * with files alphabetically sorted by their full paths. 
+	 * Recursively scans a directory, collecting Files that are matched by the passed fileExtensionFilter. Returns the resulting ArrayList<File>,
+	 * with files in the queue alphabetically sorted by their full paths.
 	 * @param String dir The directory to recursively search through.
 	 * @param String[] fileExtensionFilter File extensions to include in the search. All unspecified file extensions will be excluded.
 	 * @return
 	 */
-	public static File[] getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(String pathToArchiveDirectory, String[] fileExtensionFilter) {
+	public static ArrayList<File> getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(String pathToArchiveDirectory, String[] fileExtensionFilter) {
 
 		File directory = new File(pathToArchiveDirectory);
 
@@ -311,8 +252,11 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		}
 
 		sortFileList(fileList);
-
-		return fileList.toArray(new File[fileList.size()]);
+		
+		//And finally, turn the list into a queue
+		ConcurrentLinkedQueue<File> queueToReturn = new ConcurrentLinkedQueue<File>(fileList);
+		
+		return fileList;
 	}
 	
 	public static void sortFileList(ArrayList<File> fileListToSort) {
@@ -328,5 +272,19 @@ public class ArchiveToMySQLTask extends HrwaTask {
 
 	}
 	
+	public void shutDownThreadExecutorService() {
+
+		//Shut down the executor service
+		
+		fixedThreadPoolExecutorService.shutdown();
+	    try {
+			fixedThreadPoolExecutorService.awaitTermination(30, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		fixedThreadPoolExecutorService.shutdownNow();
+		
+		HrwaManager.writeToLog("All " + HrwaManager.maxUsableProcessors + " threads have been shut down.", true, HrwaManager.LOG_TYPE_STANDARD);
+	}
 	
 }

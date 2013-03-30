@@ -41,16 +41,16 @@ public class ArchiveFileReadTestTask extends HrwaTask {
 		
 		//Retrieve the first archive file found in the archive file directory
 		String[] validArchiveFileExtensions = {"arc.gz", "warc.gz"};
-		File[] archiveFiles = ArchiveToMySQLTask.getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(HrwaManager.archiveFileDirPath, validArchiveFileExtensions);
+		ArrayList<File> archiveFiles = ArchiveToMySQLTask.getAlphabeticallySortedRecursiveListOfFilesFromArchiveDirectory(HrwaManager.archiveFileDirPath, validArchiveFileExtensions);
 		
 		int numRecordsFound = 0;
 		
-		if(archiveFiles.length == 0) {
+		if(archiveFiles.size() == 0) {
 			HrwaManager.writeToLog("Error: No archive files found in archive file directory. Ending Archive File Read test.", true, HrwaManager.LOG_TYPE_ERROR);
 		} else {
-			HrwaManager.writeToLog("Reading only the first archive file found (out of a total of " + archiveFiles.length + " found archive files).", true, HrwaManager.LOG_TYPE_STANDARD);
+			HrwaManager.writeToLog("Reading only the first archive file found (out of a total of " + archiveFiles.size() + " found archive files).", true, HrwaManager.LOG_TYPE_STANDARD);
 					
-			File archiveFileToRead = archiveFiles[0];
+			File archiveFileToRead = archiveFiles.get(0);
 			
 			//We need to get an ArchiveReader for this file
 			ArchiveReader archiveReader = null;

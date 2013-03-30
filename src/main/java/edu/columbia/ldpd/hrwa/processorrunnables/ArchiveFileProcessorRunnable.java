@@ -15,6 +15,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
@@ -37,11 +39,11 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	private static final String ARCHIVED_URL_PREFIX = "http://wayback.archive-it.org/1068/";
 	
 	private int uniqueRunnableId;
-	private boolean running = true;
-	private File currentArcFileBeingProcessed = null;
 	private long numRelevantArchiveRecordsProcessed = 0;
 	private final MimetypeDetector mimetypeDetector;
 	private Boolean isProcessingAnArchiveFile = false;
+	
+	private ConcurrentLinkedQueue<File> sharedReferenceToConcurrentLinkedQueueOfArchiveFiles;
 	
 	// Even though every instance of an ArchiveFileProcessorRunnable will have
 	// the same data stored in sitesMap and relatedHostsMap, I don't want to
@@ -50,18 +52,18 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	private final HashMap<String, Integer> sitesMap;
 	private final HashMap<String, Integer> relatedHostsMap;
 	
-	private final String UNCATALOGED_SITE_HOSTSTRING_VALUE = "[UNCATALOGED SITE]";
-	
 	private Connection mySQLConn = null;
 	private PreparedStatement mainRecordInsertPstmt;
 	
-	public ArchiveFileProcessorRunnable(int uniqueNumericId) {
+	public ArchiveFileProcessorRunnable(int uniqueNumericId, ConcurrentLinkedQueue<File> concurrentLinkedQueueOfArchiveFiles) {
 		//Assign uniqueNumericId
 		uniqueRunnableId = uniqueNumericId;
 		
+		//Pass reference to shared concurrentLinkedQueueOfArchiveFiles
+		sharedReferenceToConcurrentLinkedQueueOfArchiveFiles = concurrentLinkedQueueOfArchiveFiles;
+		
 		//Create a MimetypeDetector
 		mimetypeDetector = new MimetypeDetector();
-		
 		
 		//Each ArchiveFileProcessorRunnable has its own unique connection to MySQL.
 		//Initialize the one and only database connection for this instance.
@@ -85,45 +87,36 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	}
 
 	public void run() {
-		while(true) {
+		
+		HrwaManager.writeToLog("Thread " + getUniqueRunnableId() + " has started!", true, HrwaManager.LOG_TYPE_STANDARD);
+		
+		File latestFileToProcess;
+		
+		while((latestFileToProcess = sharedReferenceToConcurrentLinkedQueueOfArchiveFiles.poll()) != null) {
 			
-			if( ! running ) {
-				break;
-			}
-			
-			if(currentArcFileBeingProcessed != null) {
+			while(HrwaManager.getCurrentAppMemoryUsageInBytes() > HrwaManager.maxMemoryThresholdInBytesForStartingNewThreadProcesses) {
 				
-				if( ! HrwaManager.previewMode ) {
-					
-					if(MySQLHelper.archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(currentArcFileBeingProcessed.getName())) {
-						HrwaManager.writeToLog("Skipping the MySQL indexing of file (" + currentArcFileBeingProcessed.getName() + ") because it has already been fully indexed", true, HrwaManager.LOG_TYPE_NOTICE);
-					} else {
-						//This archive file has NOT been fully indexed into MySQL.
-						//To ensure that we don't have any partially-indexed records in MySQL, we'll delete any partially indexed records from this file.
-						//This will allow us to safely stop and start the ArchiveToMySQLTask any time.
-						MySQLHelper.deleteWebArchiveRecordsByFile(currentArcFileBeingProcessed.getName());
-						processArchiveFile(currentArcFileBeingProcessed);
-					}
-				} else {
-					HrwaManager.writeToLog("PREVIEWING the MySQL indexing of file (" + currentArcFileBeingProcessed.getName() + "). No actual database changes will be made.", true, HrwaManager.LOG_TYPE_NOTICE);
-				}
-				
-				//done processing!
-				synchronized (isProcessingAnArchiveFile) {
-					currentArcFileBeingProcessed = null;
-					isProcessingAnArchiveFile = false;
-				}
-				//System.out.println("Thread " + this.uniqueRunnableId + ": Finished processing.");
-				
-			} else {
-				//Sleep when not actively processing anything
+				//If current memory usage is too high, wait until it's lower before processing another file on this thread
 				try {
-					Thread.sleep(5);
-					if(HrwaManager.verbose) {
-						System.out.println("Thread " + this.getUniqueRunnableId() + ": Sleeping...not actively processing anything (currentArcFileBeingProcessed == null).");
-					}
+					Thread.sleep(5000);
+					System.out.println("Thread " + this.uniqueRunnableId + ": sleeping for 5 seconds because current memory usage is too high to safely start an additional simutaneous file process.  Current memory usage: " + HrwaManager.bytesToMegabytes(HrwaManager.getCurrentAppMemoryUsageInBytes()) + " MB");
 				}
 				catch (InterruptedException e) { e.printStackTrace(); }
+			}
+			
+			if( ! HrwaManager.previewMode ) {
+				
+				if(MySQLHelper.archiveFileHasAlreadyBeenFullyIndexedIntoMySQL(latestFileToProcess.getName())) {
+					HrwaManager.writeToLog("Skipping the MySQL indexing of file (" + latestFileToProcess.getName() + ") because it has already been fully indexed", true, HrwaManager.LOG_TYPE_NOTICE);
+				} else {
+					//This archive file has NOT been fully indexed into MySQL.
+					//To ensure that we don't have any partially-indexed records in MySQL, we'll delete any partially indexed records from this file.
+					//This will allow us to safely stop and start the ArchiveToMySQLTask any time.
+					MySQLHelper.deleteWebArchiveRecordsByFile(latestFileToProcess.getName());
+					processArchiveFile(latestFileToProcess);
+				}
+			} else {
+				HrwaManager.writeToLog("PREVIEWING the MySQL indexing of file (" + latestFileToProcess.getName() + "). No actual database changes will be made.", true, HrwaManager.LOG_TYPE_NOTICE);
 			}
 			
 		}
@@ -136,7 +129,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			System.exit(0);
 		}
 		
-		System.out.println("Thread " + getUniqueRunnableId() + " complete!");
+		HrwaManager.writeToLog("Thread " + getUniqueRunnableId() + " has stopped!", true, HrwaManager.LOG_TYPE_STANDARD);
 	}
 	
 	private void addNewArchiveFileToFullyIndexedArchiveFilesTable(String archiveFileName) {
@@ -176,8 +169,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 			
 			String archiveFileName = archiveFile.getName();
 			
-			long memoryLogNotificationCounter = 0;
-			
 			// Loop through all archive records in this file
 			for (ARCRecord arcRecord : arcReader) {
 				
@@ -189,11 +180,10 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 				else if(arcRecord.getMetaData().getUrl().startsWith("dns:")) {
 					//Do not do mimetype/lang analysis on DNS records
 					//HrwaManager.writeToLog("Notice: Skipping DNS record in " + archiveFile.getPath(), true, HrwaManager.LOG_TYPE_NOTICE);
-					//HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsage(), true, HrwaManager.LOG_TYPE_MEMORY);
+					//HrwaManager.writeToLog(HrwaManager.getCurrentAppMemoryUsage(), true, HrwaManager.LOG_TYPE_MEMORY);
 				}
 				else
 				{
-					//We'll be distributing the processing of these records between multiple threads
 					this.processSingleArchiveRecord(arcRecord, archiveFileName);
 					
 					this.numRelevantArchiveRecordsProcessed++;
@@ -201,15 +191,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 						System.out.println("Thread " + uniqueRunnableId + " records processed: " + this.numRelevantArchiveRecordsProcessed);
 					}
 				}
-				
-				//Every x number of records, print a line in the memory log to keep track of memory consumption over time
-				if(memoryLogNotificationCounter > 1500) {
-					HrwaManager.writeToLog("Current memory usage: " + HrwaManager.getCurrentAppMemoryUsageString(), true, HrwaManager.LOG_TYPE_MEMORY);
-					memoryLogNotificationCounter = 0;
-				} else {
-					memoryLogNotificationCounter++;
-				}
-				
 			}
 			
 			try {
@@ -356,11 +337,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		this.mySQLConn.commit();
 	}
 	
-	public void stop() {
-		System.out.println("STOP was called on Thread " + getUniqueRunnableId());
-		running = false;
-	}
-	
 	public boolean isProcessingAnArchiveFile() {
 		
 		boolean bool;
@@ -370,33 +346,6 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		}
 		
 		return bool;
-	}
-
-	/**
-	 * Sends the given arcRecord off to be processed during this runnable's run() loop.
-	 * How does this work?  The passed arcRecord is assigned to this.currentArcRecordBeingProcessed.
-	 * This function returns almost immediately.  Actual processing happens asynchronously.
-	 * @param archiveFile
-	 */
-	public void queueArchiveFileForProcessing(File archiveFile) {
-		
-		HrwaManager.writeToLog("Notice: Archive file claimed by ArchiveFileProcessorRunnable " + this.getUniqueRunnableId() + " (" + archiveFile.getName() + ")", true, HrwaManager.LOG_TYPE_NOTICE);
-		
-		boolean isProcessing = false;
-		
-		synchronized (isProcessingAnArchiveFile) {
-			isProcessing = isProcessingAnArchiveFile;
-		}
-		
-		if(isProcessing) {
-			HrwaManager.writeToLog("Error: ArchiveRecordProcessorRunnable with id " + this.uniqueRunnableId + " cannot accept a new archive file to process because isProcessingAnArchiveFile == true. This error should never appear if things were coded properly.", true, HrwaManager.LOG_TYPE_ERROR);
-		} else {
-			synchronized (isProcessingAnArchiveFile) {
-				currentArcFileBeingProcessed = archiveFile;
-				isProcessingAnArchiveFile = true;
-			}
-			//System.out.println("Thread " + this.uniqueRunnableId + ": Just started processing.");
-		}
 	}
 	
 	/**
