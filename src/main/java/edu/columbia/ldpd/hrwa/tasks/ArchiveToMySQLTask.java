@@ -60,8 +60,8 @@ public class ArchiveToMySQLTask extends HrwaTask {
 	
 	//How many threads will we create?  HrwaManager.maxUsableProcessors
 	private ArrayList<ArchiveFileProcessorRunnable> archiveRecordProcessorRunnables;
-	ArrayList<Future<ArchiveFileProcessorRunnable>> archiveRecordProcessorFutures;
-	ExecutorService fixedThreadPoolExecutorService;
+	private ArrayList<Future<ArchiveFileProcessorRunnable>> archiveRecordProcessorFutures;
+	private ExecutorService fixedThreadPoolExecutorService;
 
 	public ArchiveToMySQLTask() {
 		archiveRecordProcessorRunnables = new ArrayList<ArchiveFileProcessorRunnable>(HrwaManager.maxUsableProcessors);
@@ -109,6 +109,7 @@ public class ArchiveToMySQLTask extends HrwaTask {
 		
 		//Now we'll turn this list into a ConcurrentLinkedQueue<File>.  It's thread-safe!  Nice!  
 		ConcurrentLinkedQueue<File> concurrentLinkedQueueOfArchiveFiles = new ConcurrentLinkedQueue<File>(listOfArchiveFiles);
+		
 		
 		initializeArchiveRecordProcessorThreads(concurrentLinkedQueueOfArchiveFiles);
 		
