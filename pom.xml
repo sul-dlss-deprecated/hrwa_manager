@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.columbia.ldpd.hrwa</groupId>
   <artifactId>hrwa_manager</artifactId>
-  <version>0.1.8</version>
+  <version>0.1.9</version>
   <name>HRWA Manager</name>
   <description>Human Rights Web Archive manager application.</description>
   <url>https://github.com/cul/hrwa_manager</url>
@@ -160,7 +160,7 @@
 	<dependency>
 		<groupId>org.apache.tika</groupId>
 		<artifactId>tika-app</artifactId>
-		<version>1.2</version>
+		<version>1.3</version>
 	</dependency>
 	<dependency>
 		<groupId>org.apache.solr</groupId>

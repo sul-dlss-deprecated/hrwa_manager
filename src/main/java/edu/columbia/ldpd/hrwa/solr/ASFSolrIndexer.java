@@ -154,9 +154,11 @@ public class ASFSolrIndexer {
 			HrwaManager.writeToLog("An error occurred while trying to send a file to Solr for content extraction: " + blobFile.getPath() + "\n" +
 			e1.getMessage() + "\n" +
 			"Problematic file: " + blobFile, true, HrwaManager.LOG_TYPE_ERROR);
+			e1.printStackTrace();
 		} catch (Exception e2) {
 			HrwaManager.writeToLog("Error: Unknown Exception encountered while attempting to index a document to the ASF Solr server.  Archive record table row id: " + resultSet.getInt("id") + "\n" +
 			e2.getMessage(), true, HrwaManager.LOG_TYPE_ERROR);
+			e2.printStackTrace();
 		} finally {
 			//Close all streams related to any files that were added to this request!  We're done with them!
 			// Note: We're really only talking about one file. I just say
