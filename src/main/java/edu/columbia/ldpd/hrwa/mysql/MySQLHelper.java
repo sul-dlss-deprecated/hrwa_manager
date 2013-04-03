@@ -73,7 +73,7 @@ public class MySQLHelper {
 			"  `offset_in_archive_file` bigint(20) unsigned NOT NULL COMMENT 'This is the byte offset address of the record in the archive file.'," +
 			"  `length` bigint(20) unsigned NOT NULL COMMENT 'Size of the content returned in the HTTP response in bytes. Largest will probably be video.'," +
 			"  `record_date` char(14) NOT NULL COMMENT 'Crawl date for this record.'," +
-			"  `blob_path` varchar(500) NOT NULL COMMENT 'Filesystem path to the blob data associated with this record.  Header info is the blob_path + .header'," +
+			"  `blob_path` varchar(500) DEFAULT NULL COMMENT 'Filesystem path to the blob data associated with this record.  Header info is the blob_path + .header'," +
 			"  `mimetype_from_header` varchar(255) DEFAULT NULL COMMENT 'Mimetype defined in the archive file header.'," +
 			"  `mimetype_detected` varchar(100) DEFAULT NULL COMMENT 'Mimetype detected by our archive_to_mysql indexer, using Apache Tika.  NULL if mimetype could not be detected.'," +
 			"  `reader_identifier` varchar(255) NOT NULL COMMENT 'Full filesystem path to the warc/arc file associated with this record (at the time when this record was indexed).'," +

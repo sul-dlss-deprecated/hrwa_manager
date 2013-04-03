@@ -242,12 +242,23 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 	
 		ARCRecordMetaData arcRecordMetaData = arcRecord.getMetaData();
 		
-		//Step 1: Create .blob file and .blob.header file
-		File newlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
+		String pathToBlobFile;
+		String detectedMimetype;
 		
-		//Step 2: Run mimetype detection on blob file - Mimetype detection with Tika 1.2 is thread-safe.
-		String detectedMimetype = mimetypeDetector.getMimetype(newlyCreatedBlobFile);
-		//System.out.println("Detected mimetype: " + detectedMimetype);
+		//Only create blob file and do mimetype detection for records with a 200 (success) status
+		if(arcRecord.getStatusCode() == 200) {
+			//Step 1: Create .blob file and .blob.header file
+			File newlyCreatedBlobFile = createBlobAndHeaderFilesForRecord(arcRecord, arcRecordMetaData, httpHeaderString, parentArchiveFileName);
+			
+			//Step 2: Run mimetype detection on blob file - Mimetype detection with Tika >= 1.2 is thread-safe.
+			detectedMimetype = mimetypeDetector.getMimetype(newlyCreatedBlobFile);
+			//System.out.println("Detected mimetype: " + detectedMimetype);
+			
+			pathToBlobFile = newlyCreatedBlobFile.getPath();
+		} else {
+			pathToBlobFile = null;
+			detectedMimetype = null;
+		}
 		
 		//Step 3: If this archive record has no digest, create a digest.
 		//IMPORTANT NOTE: DO NOT close the record until after you've already extracted blob/header info from it.
@@ -276,7 +287,7 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		
 		//Step 3: Insert all info into MySQL
 		try {
-			insertRecordIntoMySQLArchiveRecordTable(arcRecord, arcRecordMetaData, detectedMimetype, parentArchiveFileName, newlyCreatedBlobFile.getPath());
+			insertRecordIntoMySQLArchiveRecordTable(arcRecord, arcRecordMetaData, detectedMimetype, parentArchiveFileName, pathToBlobFile);
 		} catch (SQLException ex) {
 			HrwaManager.writeToLog("An error occurred while attempting to insert a new archive record row into MySQL.", true, HrwaManager.LOG_TYPE_ERROR);
 		}
@@ -308,9 +319,17 @@ public class ArchiveFileProcessorRunnable implements Runnable {
 		this.mainRecordInsertPstmt.setLong  (	5,  arcRecordMetaData.getOffset()			);
 		this.mainRecordInsertPstmt.setLong  (   6,  arcRecordMetaData.getLength()           );
 		this.mainRecordInsertPstmt.setString(	7,  arcRecordMetaData.getDate()				);
-		this.mainRecordInsertPstmt.setString(	8,  pathToBlobFile             				);
+		if(pathToBlobFile == null) {
+			this.mainRecordInsertPstmt.setNull( 8,  java.sql.Types.VARCHAR             		);
+		} else {
+			this.mainRecordInsertPstmt.setString( 8,  pathToBlobFile             			);
+		}
 		this.mainRecordInsertPstmt.setString(	9,  arcRecordMetaData.getMimetype()    		);
-		this.mainRecordInsertPstmt.setString(	10, detectedMimetype      					);
+		if(detectedMimetype == null) {
+			this.mainRecordInsertPstmt.setNull( 10,  java.sql.Types.VARCHAR             	);
+		} else {
+			this.mainRecordInsertPstmt.setString( 10, detectedMimetype      				);
+		}
 		this.mainRecordInsertPstmt.setString(	11, arcRecordMetaData.getReaderIdentifier()	);
 		this.mainRecordInsertPstmt.setString(	12, recordIdentifier						);
 		this.mainRecordInsertPstmt.setString(	13, ArchiveFileProcessorRunnable.ARCHIVED_URL_PREFIX + recordIdentifier);

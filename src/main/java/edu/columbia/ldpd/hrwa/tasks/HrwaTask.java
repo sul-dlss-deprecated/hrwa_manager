@@ -17,7 +17,7 @@ public abstract class HrwaTask {
 				"Running task: " + this.getClass().getName() + "\n" +
 				"---------------------------------------------",
 				true,
-				HrwaManager.LOG_TYPE_STANDARD);
+				HrwaManager.LOG_TYPE_ALL);
 	}
 	
 	public void writeTaskFooterMessageAndPrintTotalTime() {

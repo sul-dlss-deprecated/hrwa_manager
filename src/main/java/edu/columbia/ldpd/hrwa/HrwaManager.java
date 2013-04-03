@@ -110,6 +110,7 @@ public class HrwaManager {
 	public static final int LOG_TYPE_ERROR = 1;
 	public static final int LOG_TYPE_NOTICE = 2;
 	public static final int LOG_TYPE_MEMORY = 3;
+	public static final int LOG_TYPE_ALL = 4;
 	
 	private static ArrayList<HrwaTask> tasksToRun = new ArrayList<HrwaTask>(); 
 
@@ -257,19 +258,19 @@ public class HrwaManager {
 		}
 
 		try {
-			if(log_type == LOG_TYPE_ERROR) {
+			if(log_type == LOG_TYPE_ERROR || log_type == LOG_TYPE_ALL) {
 				synchronized(mysqlErrorLogWriter) {
 					mysqlErrorLogWriter.write(stringToWrite + "\n");
 					mysqlErrorLogWriter.flush();
 				}
 			}
-			else if(log_type == LOG_TYPE_NOTICE) {
+			else if(log_type == LOG_TYPE_NOTICE || log_type == LOG_TYPE_ALL) {
 				synchronized(mysqlNoticeLogWriter) {
 					mysqlNoticeLogWriter.write(stringToWrite + "\n");
 					mysqlNoticeLogWriter.flush();
 				}
 			}
-			else if(log_type == LOG_TYPE_MEMORY) {
+			else if(log_type == LOG_TYPE_MEMORY || log_type == LOG_TYPE_ALL) {
 				synchronized(mysqlMemoryLogWriter) {
 					mysqlMemoryLogWriter.write(stringToWrite + "\n");
 					mysqlMemoryLogWriter.flush();

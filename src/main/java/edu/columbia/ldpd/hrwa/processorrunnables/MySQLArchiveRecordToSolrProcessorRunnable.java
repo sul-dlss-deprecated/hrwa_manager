@@ -113,6 +113,7 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 				" WHERE" +
 				" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id >= " + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed +
 				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id < " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + HrwaManager.mySQLToSolrRowRetrievalSize) +
+				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".status_code = 200" +
 				" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE_LIST +
 				" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "." + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "'"
 			);
@@ -173,7 +174,6 @@ public class MySQLArchiveRecordToSolrProcessorRunnable implements Runnable {
 						" WHERE" +
 						" " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id >= " + startingRecordIdForMySQLArchiveRecordRowsBeingProcessed +
 						" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + ".id < " + (startingRecordIdForMySQLArchiveRecordRowsBeingProcessed + HrwaManager.mySQLToSolrRowRetrievalSize) +
-						" AND " + HrwaManager.MYSQL_MIMETYPE_CODES_TABLE_NAME + ".mimetype_code IN " + HrwaManager.DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE_LIST +
 						" AND " + HrwaManager.MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME + "." + MySQLHelper.HRWA_MANAGER_TODO_FIELD_NAME + " = '" + MySQLHelper.HRWA_MANAGER_TODO_UPDATED + "'"; 
 				
 				System.out.println(query);

@@ -79,7 +79,15 @@ public class ASFSolrIndexer {
 				
 		String recordDate = resultSet.getString( "record_date" );
 		String mimetypeDetected   = resultSet.getString( "mimetype_detected" );
-		File blobFile = new File(resultSet.getString( "blob_path" ));
+		
+		
+		String blobPath = resultSet.getString( "blob_path" );
+		if(blobPath == null) {
+			HrwaManager.writeToLog("Web archive record field `blob_path` was NULL for the row with id:" + resultSet.getLong("id") + ". Either this indicates a problem, or this row wasn't originally meant to be indexed into Solr. Are we ignoring it because we only want records with a status code of 200 (success)? Actual status code for this record: " + resultSet.getString("status_code"), true, HrwaManager.LOG_TYPE_ERROR);
+			return;
+		}
+		
+		File blobFile = new File(blobPath);
 		
 		// Early exit if we can't find the blob file
 		if ( ! blobFile.exists() ) {
