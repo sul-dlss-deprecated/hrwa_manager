@@ -101,7 +101,7 @@
    -->
 
 
-   <field name="id"                           type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="id"                        type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
 
    <!-- Required fields must be either indexed="true" or stored="true", or else add doc fails with spurious "Missing required field"
    error.  Source: http://stackoverflow.com/questions/9745039/solr-missing-required-field-error-when-the-field-is-not-missing.
@@ -121,7 +121,7 @@
    <field name="record_date"               type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="record_identifier"         type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="status_code"               type="string"       indexed="true"  stored="true"  required="false" multiValued="false" />
-   <field name="contents"                  type="text_en"      indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="contents"                  type="text_en"      indexed="false" stored="true"  required="true"  multiValued="true"  />
 
    <!-- Title is part of data extracted by Solr Cell.  See title field grouped with other Solr Cell fields later in this schema file (around 40-50 lines below this line). -->
    <!-- <field name="title"                    type="text_en"      indexed="true"  stored="true"  required="false" multiValued="false" /> -->
@@ -131,7 +131,7 @@
    <field name="bib_key"                      type="string"       indexed="true"  stored="true" required="false"  multiValued="false" />
    <field name="creator_name"                 type="text_general" indexed="true"  stored="true" required="false"  multiValued="true"  />
    <field name="creator_name__facet"          type="string"       indexed="true"  stored="true" required="false"  multiValued="true"  />
-   <field name="domain"                       type="string"       indexed="true"  stored="true" required="false"  multiValued="false"  />
+   <field name="domain"                       type="string"       indexed="true"  stored="true" required="false"  multiValued="false" />
    <field name="organization_type"            type="text_general" indexed="true"  stored="true" required="false"  multiValued="false" />
    <field name="organization_type__facet"     type="string"       indexed="true"  stored="true" required="false"  multiValued="false" />
    <field name="organization_based_in"        type="text_general" indexed="true"  stored="true" required="false"  multiValued="false" />
@@ -153,17 +153,18 @@
    -->
 
    <field name="title" type="text_general" indexed="true" stored="true" multiValued="true"/>
-   <field name="rd_subject" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_description" type="text_general" indexed="true" stored="true" multivalued="true"/>
-   <field name="rd_comments" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_author" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_keywords" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_category" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_resourcename" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_url" type="text_general" indexed="true" stored="true"/>
-   <field name="rd_content_type" type="string" indexed="true" stored="true" multiValued="true"/>
-   <field name="rd_last_modified" type="date" indexed="true" stored="true"/>
-   <field name="rd_links" type="string" indexed="true" stored="true" multiValued="true"/>
+
+   <field name="rd_subject" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_description" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_comments" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_author" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_keywords" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_category" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_resourcename" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_url" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_content_type" type="string" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_last_modified" type="date" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_links" type="string" indexed="false" stored="true" multiValued="true"/>
 
    <!-- Main body of document extracted by SolrCell.
         NOTE: This field is not indexed by default, since it is also copied to "text"
