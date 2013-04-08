@@ -107,11 +107,11 @@
    error.  Source: http://stackoverflow.com/questions/9745039/solr-missing-required-field-error-when-the-field-is-not-missing.
         Also, indexed must be true to be able to sort by a field.
    -->
-   <field name="archived_url"              type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="date_of_capture_yyyy"      type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="date_of_capture_yyyymm"    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="date_of_capture_yyyymmdd"  type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
-   <field name="digest"                    type="string"       indexed="true"  stored="true"  required="true"  multivalued="false" />
+   <field name="archived_url"              type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="date_of_capture_yyyy"      type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="date_of_capture_yyyymm"    type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="date_of_capture_yyyymmdd"  type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
+   <field name="digest"                    type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="filename"                  type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="length"                    type="long"         indexed="true"  stored="true"  required="true"  multiValued="false" />
    <field name="original_url"              type="string"       indexed="true"  stored="true"  required="true"  multiValued="false" />
@@ -154,16 +154,16 @@
 
    <field name="title" type="text_general" indexed="true" stored="true" multiValued="true"/>
 
-   <field name="rd_subject" type="text_general" indexed="false" stored="true" multivalued="true"/>
-   <field name="rd_description" type="text_general" indexed="false" stored="true" multivalued="true"/>
-   <field name="rd_comments" type="text_general" indexed="false" stored="true" multivalued="true"/>
-   <field name="rd_author" type="text_general" indexed="false" stored="true" multivalued="true"/>
-   <field name="rd_keywords" type="text_general" indexed="false" stored="true" multivalued="true"/>
-   <field name="rd_category" type="text_general" indexed="false" stored="true" multivalued="true"/>
-   <field name="rd_resourcename" type="text_general" indexed="false" stored="true" multivalued="true"/>
-   <field name="rd_url" type="text_general" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_subject" type="text_general" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_description" type="text_general" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_comments" type="text_general" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_author" type="text_general" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_keywords" type="text_general" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_category" type="text_general" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_resourcename" type="text_general" indexed="false" stored="true" multiValued="true"/>
+   <field name="rd_url" type="text_general" indexed="false" stored="true" multiValued="true"/>
    <field name="rd_content_type" type="string" indexed="false" stored="true" multiValued="true"/>
-   <field name="rd_last_modified" type="date" indexed="false" stored="true" multivalued="true"/>
+   <field name="rd_last_modified" type="date" indexed="false" stored="true" multiValued="true"/>
    <field name="rd_links" type="string" indexed="false" stored="true" multiValued="true"/>
 
    <!-- Main body of document extracted by SolrCell.
@@ -726,7 +726,7 @@
      -->
     <fieldType name="point" class="solr.PointType" dimension="2" subFieldSuffix="_d"/>
 
-    <!-- A specialized field for geospatial search. If indexed, this fieldType must not be multivalued. -->
+    <!-- A specialized field for geospatial search. If indexed, this fieldType must not be multiValued. -->
     <fieldType name="location" class="solr.LatLonType" subFieldSuffix="_coordinate"/>
 
     <!-- An alternative geospatial field type new to Solr 4.  It supports multiValued and polygon shapes.
