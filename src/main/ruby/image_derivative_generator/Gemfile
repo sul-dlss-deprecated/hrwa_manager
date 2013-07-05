@@ -1,0 +1,2 @@
+source "http://rubygems.org"
+gem 'image_science', '~> 1.2.3'

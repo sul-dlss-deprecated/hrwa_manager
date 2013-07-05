@@ -1,0 +1,14 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    RubyInline (3.11.3)
+      ZenTest (~> 4.3)
+    ZenTest (4.8.2)
+    image_science (1.2.3)
+      RubyInline (~> 3.9)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  image_science (~> 1.2.3)
