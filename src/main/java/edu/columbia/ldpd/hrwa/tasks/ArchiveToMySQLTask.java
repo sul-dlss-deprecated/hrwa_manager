@@ -91,13 +91,13 @@ public class ArchiveToMySQLTask extends HrwaTask {
 			MySQLHelper.createWebArchiveRecordsTableIfItDoesNotExist();
 			MySQLHelper.createFullyIndexedArchiveFilesTableIfItDoesNotExist();
 			
-			//And make sure that the sites and related_hosts tables exist!
+			//And make sure that the sites tables exists!
 			if(MySQLHelper.getSitesMap(null).size() < 1) {
 				HrwaManager.writeToLog("Error: Could not find sites table in database.", true, HrwaManager.LOG_TYPE_ERROR);
 				System.exit(HrwaManager.EXIT_CODE_ERROR);
 			}
 			
-			//And make sure that the sites and related_hosts tables exist!
+			//And make sure that related_hosts table exists!
 			if(MySQLHelper.getRelatedHostsMap(null).size() < 1) {
 				HrwaManager.writeToLog("Error: Could not find related hosts table in database.", true, HrwaManager.LOG_TYPE_ERROR);
 				System.exit(HrwaManager.EXIT_CODE_ERROR);

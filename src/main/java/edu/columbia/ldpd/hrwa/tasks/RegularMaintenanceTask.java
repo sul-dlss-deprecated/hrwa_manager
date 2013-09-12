@@ -71,7 +71,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 		sitesToSolrAndMySQLTask.runTask();
 		
 		//Update unlinked web archive records that should be linked to new sites (linked by sites table hoststring or related_hosts table entries)
-		//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns
+		//Do this in batches of 1000 to avoid massive MySQL joins that can cause memory problems or major slowdowns
 		
 		long maxWebArchiveRecordMySQLId = MySQLHelper.getMaxIdFromWebArchiveRecordsTable();
 		
@@ -133,7 +133,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 				
 				pstmt.close();
 				
-				HrwaManager.writeToLog("Linking web archive records to NEW sites -- Done! " +
+				HrwaManager.writeToLog("Done linking web archive records to NEW sites! " +
 				"Affected rows: " + rowsAffected, true, HrwaManager.LOG_TYPE_STANDARD);
 				
 				totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsAffected;
@@ -188,7 +188,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 				
 				pstmt.close();
 				
-				HrwaManager.writeToLog("Linking web archive records to NEW sites -- Done! " +
+				HrwaManager.writeToLog("Done deleting unwanted MySQL records from Solr! " +
 				"Affected rows: " + rowsAffected, true, HrwaManager.LOG_TYPE_STANDARD);
 				
 				totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsAffected;
@@ -249,7 +249,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 			}
 			
 			//For NEW related hosts, we'll also update unlinked web archive records that should be linked via related hosts to sites
-			//Do this in groups of 1000 to avoid massive MySQL joins that could cause memory problems or major slowdowns
+			//Do this in groups of 1000 to avoid massive MySQL joins that can cause memory problems or major slowdowns
 			
 			//Get number of NEW related hosts.  If > 0, then we want to go through all unlinked web archive records and link them to a site THROUGH a related host
 			if(MySQLHelper.getRelatedHostsMap("WHERE related_hosts.hrwa_manager_todo = 'NEW'").size() > 0) {
@@ -321,7 +321,7 @@ public class RegularMaintenanceTask extends HrwaTask {
 					pstmt.setLong(2, currentRecordRetrievalOffset + HrwaManager.regularMaintenanceMySQLRowRetrievalSize);
 					rowsAffected += pstmt.executeUpdate();
 				}
-				HrwaManager.writeToLog("Updating web archive records where associated site has been marked as UPDATED -- Done! " +
+				HrwaManager.writeToLog("Done updating web archive records where associated site has been marked as UPDATED! " +
 				"Affected rows: " + rowsAffected, true, HrwaManager.LOG_TYPE_STANDARD);
 		
 				totalNumberOfWebArchiveRecordRowsUpdatedByThisTask += rowsAffected;
@@ -348,10 +348,10 @@ public class RegularMaintenanceTask extends HrwaTask {
 				" AND" +
 				" web_archive_records.id <= ?" +
 				" AND" +
-				" hrwa_manager_todo IS NOT NULL" +
+				" web_archive_records.hrwa_manager_todo IS NOT NULL" +
 				" AND (" +
-					" web_archive_records.hrwa_manager_todo IS NULL" +
-					" OR" +
+				//	" web_archive_records.hrwa_manager_todo IS NULL" +
+				//	" OR" +
 					" web_archive_records.hrwa_manager_todo != 'NOINDEX'" +
 				" )" +
 				" AND (" +

@@ -197,7 +197,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			// in the final download directory.
 			String tempFileDownloadLocation = DownloadArchiveFilesFromArchivitTask.pathToTempDownloadDir + File.separator + singleArchiveFileInfo.get("fileName");
 			
-			//There shouldn't be any file current at tempFileDownloadLocation, but let's check just in case
+			//There shouldn't be any file current at tempFileDownloadLocation, but let's check just in case someone moved a file there unintentionally
 			if(new File(tempFileDownloadLocation).exists()) {
 				//A file already exists at tempFileDownloadLocation.  This is not good, and should never happen.
 				HrwaManager.writeToLog("Error: Could not create temp file at " + tempFileDownloadLocation + " because a file with the same name already exists there. Skipping download of this file (" + singleArchiveFileInfo.get("fileName") + ").", true, HrwaManager.LOG_TYPE_ERROR);
