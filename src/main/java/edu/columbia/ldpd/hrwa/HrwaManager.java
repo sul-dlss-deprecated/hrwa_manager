@@ -542,7 +542,7 @@ public class HrwaManager {
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
                 .hasArg()
-                .withDescription( "Location of log directory. Default to ./logs (relative to the " )
+                .withDescription( "Location of log directory. Default to ./logs (relative to the application path)." )
                 .create( "logdir" )
         );
         
@@ -577,7 +577,7 @@ public class HrwaManager {
         options.addOption(
         		OptionBuilder.withArgName( "file" )
                 .hasArg()
-                .withDescription( "File that contains related hosts into for the related hosts table." )
+                .withDescription( "File that contains related hosts into for the related hosts table (linking specific (W)ARC crawled page domains to differently-named CLIO FSF record domains)." )
                 .create( "relatedhostsfile" )
         );
         
@@ -633,14 +633,14 @@ public class HrwaManager {
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
-                .withDescription( "MySQL username." )
+                .withDescription( "MySQL username for the database given in -mysqldatabase." )
                 .create( "mysqlusername" )
         );
         
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
-                .withDescription( "MySQL password." )
+                .withDescription( "MySQL password for the database given in -mysqldatabase." )
                 .create( "mysqlpassword" )
         );
         

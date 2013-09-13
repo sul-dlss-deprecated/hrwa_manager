@@ -1,7 +1,73 @@
 HRWA Manager
 
-This app will eventually be the main manager for all HRWA archive file downloading, indexing, and CLIO-related interaction.
+This application is the main manager for all Human Rights Web Archive file downloading, indexing, and CLIO-related interaction.
+
+- Tested on Java 6.
 
 Minimum JVM requirements:
 
 -Xmx6144M (Note: 4096M is not enough because there are archive files to download that are at least 1GB in size, and the download+md5 check leads to out of memory errors if you don't allocate enough RAM to the JVM. To be safe, I'm allocating at least 6144M.)
+
+usage: hrwa_indexer
+ -archivefiledir <directory>
+   Root directory of archive files (arc.gz/warc.gz) to be indexed (recurses through subdirectories).
+ -archivefilereadtest
+   Run ArchiveFileReadTestTask
+ -archiveitcollectionid <integer>
+   Numeric ID of the Archive-It collection that we want to download from.
+ -archiveitpassword <string>
+   Password required for logging into the Archive-It website and downloading archive files.
+ -archiveitusername <string>
+   Username required for logging into the Archive-It website and downloading archive files.
+ -archivetomysql
+   Run ArchiveToMySQLTask
+ -asfsolrurl <string>
+   ASF Solr URL to connect to.
+ -blobdir <directory>
+   Output directory where processed archive record blobs will go. The specified directory will be created if it does not already exist.
+ -downloadarchivefiles
+   Run DownloadArchiveFilesFromArchivitTask
+ -fsfsolrurl <string>
+   FSF Solr URL to connect to.
+ -help
+    Display help
+ -logdir <directory>
+   Location of log directory. Default to ./logs (relative to the application path).
+ -logfileprefix <string>
+   Prefix to be prepended to log files in the form: outputfileprefix-standard.log, outputfileprefix-error.log, etc.
+ -maxmemorythresholdpercentageforstartingnewthreadprocesses <integer>
+   The maximum memory threshold percentage for starting new thread processes. Defaults to 75% of the RAM allocated to this java process. Note: Supplied value should be between 50 (%) and 100 (%).
+ -maxusableprocessors <integer>
+   The maximum number of processors that should be used by this program. Defaults to (number of processors - 1). Note: Supplied value muse be <= the number of cores available on the machine.
+ -mysqlarchiverecordstosolr
+   Run MySQLArchiveRecordsToSolrTask
+ -mysqlcommitbatchsize <integer>
+   MySQL commit batch size (e.g. commit records in batches of 1000).
+ -mysqldatabase <string>
+   MySQL database to connect to.
+ -mysqlpassword <string>
+   MySQL password for the database given in -mysqldatabase.
+ -mysqltosolrrowretrievalsize <integer>
+   MySQL to solr row retrieval size (e.g. When indexing to Solr, select records from MySQL in groups of 1000).
+ -mysqlurl <string>
+   MySQL URL to connect to.
+ -mysqlusername <string>
+   MySQL username for the database given in -mysqldatabase.
+ -preview
+   Run alloperations in preview mode (no real changes will be made).
+ -quarterlymaintenance
+   Run QuarterlyMaintenanceTask
+ -regularmaintenance
+   Run RegularMaintenanceTask
+ -regularmaintenancemysqlrowretrievalsize <integer>
+   Regular maintenance MySQL row retrieval size (e.g. When performing regular HRWA app maintenance, select records from MySQL in groups of 1000).
+ -relatedhostsfile <file>
+   File that contains related hosts into for the related hosts table (linking specific (W)ARC crawled page domains to differently-named CLIO FSF record domains).
+ -sitestosolrandmysql
+   Run SitesToSolrAndMySQLTask
+ -talktocliotest
+   Run TalkToClioTestTask
+ -tmpdir <directory>
+   Location of temporary working directory.
+ -verbose
+   More verbose console output.
