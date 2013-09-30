@@ -40,6 +40,9 @@ public class TitleField extends DefaultField {
             int offset = Character.getNumericValue(df.getIndicator2());
             aVal = aVal.substring(offset).toUpperCase();
         }
+        if(aVal.endsWith(".")) {
+        	aVal = aVal.substring(0, aVal.length()-1); // Remove trailing period if one is present
+        }
         return new String[]{aVal};
     }
 

@@ -333,6 +333,12 @@ public class MySQLHelper {
 			while (relatedHostsScanner.hasNextLine())
 			{
 			    String[] siteAndRelatedHostParts = relatedHostsScanner.nextLine().split(",");
+			    
+			    //Skip first line if it contains column titles, "seed" and "related_host"
+			    if(siteAndRelatedHostParts[1].equals("seed")) {
+			    	continue;
+			    }
+			    
 			    relatedHostsToSeedsMapFromRelatedHostsFile.put(siteAndRelatedHostParts[1], siteAndRelatedHostParts[0]);
 			}
 		} catch (FileNotFoundException e) {
@@ -594,7 +600,7 @@ public class MySQLHelper {
 				conn.commit();
 		        conn.close();
 			} catch (SQLException e) {
-				HrwaManager.writeToLog("Error: Could not retrieve records from HRWA MySQL related hosts table", true, HrwaManager.LOG_TYPE_ERROR);
+				HrwaManager.writeToLog("Error: Could not add/update records in HRWA MySQL sites table", true, HrwaManager.LOG_TYPE_ERROR);
 				e.printStackTrace();
 				System.exit(0);
 			}
