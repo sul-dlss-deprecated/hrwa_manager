@@ -534,6 +534,8 @@ public class MySQLHelper {
 		
 		if(existingRrecordsToUpdate.size() > 0 || newRecordsToAdd.size() > 0) {
 		
+			String latestKnownBibKey = "";
+			
 			try {
 				
 				Connection conn = MySQLHelper.getNewDBConnection(false);
@@ -547,6 +549,8 @@ public class MySQLHelper {
 					);
 					
 					for(HrwaSiteRecord singleRecord : newRecordsToAdd) {
+						
+						latestKnownBibKey = singleRecord.getSingleValuedFieldValue("bib_key"); //for debugging purposes
 						
 						pstmt1.setString(1, singleRecord.getSingleValuedFieldValue("bib_key"));
 						pstmt1.setString(2, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
@@ -579,6 +583,9 @@ public class MySQLHelper {
 					);
 					
 					for(HrwaSiteRecord singleRecord : existingRrecordsToUpdate) {
+						
+						latestKnownBibKey = singleRecord.getSingleValuedFieldValue("bib_key"); //for debugging purposes
+						
 						pstmt2.setString(1, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
 						pstmt2.setString(2, singleRecord.getHostString());
 						pstmt2.setString(3, singleRecord.getSingleValuedFieldValue("organization_type"));
@@ -600,7 +607,7 @@ public class MySQLHelper {
 				conn.commit();
 		        conn.close();
 			} catch (SQLException e) {
-				HrwaManager.writeToLog("Error: Could not add/update records in HRWA MySQL sites table", true, HrwaManager.LOG_TYPE_ERROR);
+				HrwaManager.writeToLog("Error: Could not add/update records in HRWA MySQL sites table. Error may be related to latest known bib key: " + latestKnownBibKey, true, HrwaManager.LOG_TYPE_ERROR);
 				e.printStackTrace();
 				System.exit(0);
 			}
