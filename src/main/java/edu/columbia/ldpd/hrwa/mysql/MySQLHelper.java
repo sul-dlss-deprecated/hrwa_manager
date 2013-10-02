@@ -335,7 +335,7 @@ public class MySQLHelper {
 			    String[] siteAndRelatedHostParts = relatedHostsScanner.nextLine().split(",");
 			    
 			    //Skip first line if it contains column titles, "seed" and "related_host"
-			    if(siteAndRelatedHostParts[1].equals("seed")) {
+			    if(siteAndRelatedHostParts[0].equals("seed") || siteAndRelatedHostParts[1].equals("related_host")) {
 			    	continue;
 			    }
 			    
