@@ -585,6 +585,7 @@ public class MySQLHelper {
 					for(HrwaSiteRecord singleRecord : existingRrecordsToUpdate) {
 						
 						latestKnownBibKey = singleRecord.getSingleValuedFieldValue("bib_key"); //for debugging purposes
+						System.out.println("Processing: " + latestKnownBibKey);
 						
 						pstmt2.setString(1, singleRecord.getPipeDelimitedMultiValuedFieldString("creator_name"));
 						pstmt2.setString(2, singleRecord.getHostString());
