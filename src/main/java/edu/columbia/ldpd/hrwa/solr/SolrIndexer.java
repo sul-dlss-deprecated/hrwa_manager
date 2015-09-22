@@ -158,12 +158,7 @@ public class SolrIndexer {
 
 
     private static HttpEntity getEntity(String content){
-        try {
-            return new StringEntity(content,"utf-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-            return null;
-        }
+        return new StringEntity(content,"utf-8");
     }
 
     private static HttpEntity getEntity(File content){

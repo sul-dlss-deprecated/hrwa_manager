@@ -68,6 +68,7 @@ public class HrwaManager {
 	public static String		mysqlUsername		= ""; //default, should be overridden
 	public static String		mysqlPassword		= ""; //default, should be overridden
 	public static String		pathToRelatedHostsFile = ""; //default, should be overridden
+	public static String		requiredmonth = "";
 	
 	public static final String		MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME			= "web_archive_records";
 	public static final String		MYSQL_MIMETYPE_CODES_TABLE_NAME					= "mimetype_codes";
@@ -370,17 +371,7 @@ public class HrwaManager {
 	        
 	        if ( cmdLine.hasOption( "archiveitcollectionid") ) {
 	        	archiveItCollectionId = Integer.parseInt(cmdLine.getOptionValue( "archiveitcollectionid" ));
-	        	System.out.println("An archive-it collection id was supplied.");
-	        	
-	        	if(HrwaManager.archiveItCollectionId != 1068 && HrwaManager.archiveItCollectionId != 1716) {
-	        		System.out.println("Error: Invalid Archive-It collection specified (or none supplied). Collection ID: " + HrwaManager.archiveItCollectionId);
-	        		System.out.println(	"Valid options:\n" +
-	    								"-- 1068: Real HRWA archive file set\n" +
-	    								"-- 1716: Small non-HRWA set for testing");
-	        		
-	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
-	    		}
-	        	
+	        	System.out.println("An archive-it collection id was supplied.");	        	
 	        }
 	        
 	        if ( cmdLine.hasOption( "maxusableprocessors") ) {
@@ -448,6 +439,15 @@ public class HrwaManager {
 	    		}
 	        }
 	        
+	        
+	        
+	        if ( cmdLine.hasOption( "requiredmonth") ) {
+	        	requiredmonth = cmdLine.getOptionValue( "requiredmonth" );
+
+	        	System.out.println("Specific crawling month has been specified.");
+	        }
+	        
+	        
 	        if ( cmdLine.hasOption( "asfsolrurl") ) {
 	        	asfSolrUrl = cmdLine.getOptionValue( "asfsolrurl" );
 	        	System.out.println("An ASF Solr URL has been supplied.");
@@ -505,6 +505,7 @@ public class HrwaManager {
 	        	HrwaManager.runQuarterlyMaintenanceTask = true;
 	        	System.out.println("* Will run QuarterlyMaintenanceTask.");
 	        }
+
 	        
         }
         else
@@ -677,6 +678,13 @@ public class HrwaManager {
                 .hasArg()
                 .withDescription( "FSF Solr URL to connect to." )
                 .create( "fsfsolrurl" )
+        );
+        
+        options.addOption(
+        		OptionBuilder.withArgName( "string" )
+                .hasArg()
+                .withDescription( "Specific year_month to download." )
+                .create( "requiredmonth" )
         );
         
     }

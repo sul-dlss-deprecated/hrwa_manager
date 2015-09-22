@@ -5,12 +5,12 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
@@ -30,7 +30,7 @@ import edu.columbia.ldpd.hrwa.HrwaManager;
 
 public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 	
-	private String archiveFileDownloadDomain = "https://www.archive-it.org";
+	private String archiveFileDownloadDomain = "https://partner.archive-it.org";
 	private String archiveFileDownloadPageUrl = archiveFileDownloadDomain + "/cgi-bin/getarcs.pl?coll=" + HrwaManager.archiveItCollectionId;
 	//HRWA Collection: 1068
 	
@@ -58,35 +58,40 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 	}
 	
 	private void performDownload() {
-		final WebClient webClient = new WebClient(BrowserVersion.FIREFOX_3_6);
 		
 		ArrayList<HashMap<String, String>> filesToDownload = new ArrayList<HashMap<String, String>>();
 		
 		try {
-			DefaultCredentialsProvider credentialsProvider = new DefaultCredentialsProvider();
-			credentialsProvider.addCredentials(HrwaManager.archiveItUsername, HrwaManager.archiveItPassword);
-			webClient.setCredentialsProvider(credentialsProvider);
+			
+		    WebClient webClient = webClientAuthenticator();
 			
 			//Get list of filesToDownload (which ignores already-downloaded files)
 			filesToDownload = getListOfFilesToDownload(webClient);
 			
-			downloadArchiveFiles(filesToDownload, webClient);
+			webClientCloseWindow(webClient);
 			
-			webClient.closeAllWindows();
-			
+			downloadArchiveFiles(filesToDownload);
 		} catch (FailingHttpStatusCodeException e) {
 			HrwaManager.writeToLog("Error: Unable to connect to ArchiveIt's site. Did you supply a valid username and password as command line arguments? If so, is the Archive-It site working properly? (archiveFileDownloadPageUrl: " + archiveFileDownloadPageUrl + ")", true, HrwaManager.LOG_TYPE_ERROR);
 			e.printStackTrace();
 		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			HrwaManager.writeToLog("Error: Unable to connect to ArchiveIt's site, MaleformedURL.\n"+convertStackTraceToString(e),true,HrwaManager.LOG_TYPE_ERROR);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			HrwaManager.writeToLog("Error: Unable to connect to ArchiveIt's site\n"+convertStackTraceToString(e),true,HrwaManager.LOG_TYPE_ERROR);
 		}
+	}
+
+	private void webClientCloseWindow(WebClient webClient) {
+		webClient.closeAllWindows();
+	}
+
+	private WebClient webClientAuthenticator() {
+		WebClient webClient = new WebClient(BrowserVersion.FIREFOX_24);
+		DefaultCredentialsProvider credentialsProvider = new DefaultCredentialsProvider();
+		credentialsProvider.addCredentials(HrwaManager.archiveItUsername, HrwaManager.archiveItPassword);
+		webClient.setCredentialsProvider(credentialsProvider);
+		webClient.getOptions().setUseInsecureSSL(true);
+		return webClient;
 	}
 	
 	private ArrayList<HashMap<String, String>> getListOfFilesToDownload(WebClient webClient) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
@@ -147,27 +152,38 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			
 			//Extract crawl date from file name
 			captureYearAndMonthString = HrwaManager.getCaptureYearAndMonthStringFromArchiveFileName(fileName);
-			
-			if(captureYearAndMonthString != null) {
+			boolean isFileDownloaded = false;
+			if(captureYearAndMonthString != null ) {
 				
 				//Finally, let's check to see if we've already downloaded this file.  If we have, then we don't want to add it to filesToDownload
 				if( new File(getDestinationDirForArchiveFile(captureYearAndMonthString) + File.separator + fileName).exists() ) {
-					HrwaManager.writeToLog("No need to download file [" + downloadUrl + "] because it has already been downloaded.", true, HrwaManager.LOG_TYPE_NOTICE);
+					isFileDownloaded = true;
+				}  
+					
+				if(HrwaManager.requiredmonth.length()>0){
+					if(captureYearAndMonthString.equalsIgnoreCase(HrwaManager.requiredmonth)){
+						numListedArchiveFilesFoundInHtml++;
+						if(isFileDownloaded){
+							HrwaManager.writeToLog("No need to download file [" + downloadUrl + "] because it has already been downloaded.", true, HrwaManager.LOG_TYPE_NOTICE);
+						} else {
+							HashMap<String, String> archiveFileInfoMap = getArchiveDownloadFileInfo(
+									fileName, downloadUrl, expectedMD5Hash,
+									captureYearAndMonthString);
+							filesToDownload.add(archiveFileInfoMap);
+						}
+					} // else the file is out of scope of the required month
 				} else {
-					//File doesn't exist!  We want to download it.
-					
-					HashMap<String, String> archiveFileInfoMap = new HashMap<String, String>();
-					
-					archiveFileInfoMap.put("fileName", fileName);
-					archiveFileInfoMap.put("downloadUrl", downloadUrl);
-					archiveFileInfoMap.put("expectedMD5Hash", expectedMD5Hash);
-					archiveFileInfoMap.put("captureYearAndMonthString", captureYearAndMonthString);
-					
-					filesToDownload.add(archiveFileInfoMap);
+					// Check all the files for this collection
+					if(isFileDownloaded){
+						HrwaManager.writeToLog("No need to download file [" + downloadUrl + "] because it has already been downloaded.", true, HrwaManager.LOG_TYPE_NOTICE);
+					} else {
+						HashMap<String, String> archiveFileInfoMap = getArchiveDownloadFileInfo(
+								fileName, downloadUrl, expectedMD5Hash,
+								captureYearAndMonthString);
+						filesToDownload.add(archiveFileInfoMap);
+					}
+					numListedArchiveFilesFoundInHtml++;
 				}
-				
-				numListedArchiveFilesFoundInHtml++;
-				
 			} else {
 				HrwaManager.writeToLog("Error: Skipped file at [" + fileName + "] because a capture year/month combo could not be parsed from its name." , true, HrwaManager.LOG_TYPE_ERROR);
 			}
@@ -185,11 +201,26 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 		
 		return filesToDownload;
 	}
+
+	private HashMap<String, String> getArchiveDownloadFileInfo(String fileName,
+			String downloadUrl, String expectedMD5Hash,
+			String captureYearAndMonthString) {
+		HashMap<String, String> archiveFileInfoMap = new HashMap<String, String>();
+		
+		archiveFileInfoMap.put("fileName", fileName);
+		archiveFileInfoMap.put("downloadUrl", downloadUrl);
+		archiveFileInfoMap.put("expectedMD5Hash", expectedMD5Hash);
+		archiveFileInfoMap.put("captureYearAndMonthString", captureYearAndMonthString);
+		return archiveFileInfoMap;
+	}
 	
-	private void downloadArchiveFiles(ArrayList<HashMap<String, String>> listOfFilesToDownload, WebClient webClient) throws FailingHttpStatusCodeException, MalformedURLException, NoSuchAlgorithmException, IOException {
+	private void downloadArchiveFiles(ArrayList<HashMap<String, String>> listOfFilesToDownload)  {
 		
 		int numFilesToDownload = listOfFilesToDownload.size();
 		int counter = 1;
+		
+		int successCount = 0;
+		int failCount = 0;
 		
 		for(HashMap<String, String> singleArchiveFileInfo : listOfFilesToDownload) {
 			// Download file to temp directory in case the download process
@@ -201,6 +232,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			if(new File(tempFileDownloadLocation).exists()) {
 				//A file already exists at tempFileDownloadLocation.  This is not good, and should never happen.
 				HrwaManager.writeToLog("Error: Could not create temp file at " + tempFileDownloadLocation + " because a file with the same name already exists there. Skipping download of this file (" + singleArchiveFileInfo.get("fileName") + ").", true, HrwaManager.LOG_TYPE_ERROR);
+				failCount++;
 				continue; //skip download of this file
 			}
 			
@@ -211,33 +243,53 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 				HrwaManager.writeToLog("PREVIEW NOTE: Pretend success!", true, HrwaManager.LOG_TYPE_STANDARD);
 			}
 			else {
-				downloadFile(webClient, singleArchiveFileInfo.get("downloadUrl"), tempFileDownloadLocation, singleArchiveFileInfo.get("expectedMD5Hash"));
 				
-				//Create final destination directory
-				String destinationDirectory = getDestinationDirForArchiveFile(singleArchiveFileInfo.get("captureYearAndMonthString")); 
-				(new File(destinationDirectory)).mkdirs();
-				
-				//Move the fully-downloaded file from the temp directory to its permanent download location
-				if( ! new File(tempFileDownloadLocation).renameTo(new File(destinationDirectory + File.separator + singleArchiveFileInfo.get("fileName"))) ) {
-					//File could not be moved for some reason.  This is not good, and should never happen.
-					HrwaManager.writeToLog("Error: For some reason, the fully-downloaded archive file at " + tempFileDownloadLocation + " could not be moved to its final destination. It will be left in the temp directory.", true, HrwaManager.LOG_TYPE_ERROR);
+				try {
+					boolean encounterError = downloadFile( singleArchiveFileInfo.get("downloadUrl"), tempFileDownloadLocation, singleArchiveFileInfo.get("expectedMD5Hash"));
+					//Create final destination directory
+					String destinationDirectory = getDestinationDirForArchiveFile(singleArchiveFileInfo.get("captureYearAndMonthString")); 
+					(new File(destinationDirectory)).mkdirs();
+					
+					//Move the fully-downloaded file from the temp directory to its permanent download location
+					if( ! new File(tempFileDownloadLocation).renameTo(new File(destinationDirectory + File.separator + singleArchiveFileInfo.get("fileName"))) ) {
+						//File could not be moved for some reason.  This is not good, and should never happen.
+						HrwaManager.writeToLog("Error: For some reason, the fully-downloaded archive file at " + tempFileDownloadLocation + " could not be moved to its final destination. It will be left in the temp directory.", true, HrwaManager.LOG_TYPE_ERROR);
+						failCount++;
+					} else if(encounterError){
+						failCount++;
+					} else{
+						successCount++;
+					}
+				} catch (Exception e) {
+					HrwaManager.writeToLog("Error: Downloading "+singleArchiveFileInfo.get("downloadUrl")+"\n"+convertStackTraceToString(e),true,HrwaManager.LOG_TYPE_ERROR);
+					failCount++;
 				}
 			}
 			counter++;
 			System.out.println(HrwaManager.getCurrentAppRunTime()); //This doesn't need to be logged.
 		}
-		
+		HrwaManager.writeToLog("Completing downloading the files. ", true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Total number of files: "+numFilesToDownload, true, HrwaManager.LOG_TYPE_STANDARD);
+		HrwaManager.writeToLog("Successfully downloaded: "+successCount+"\nFailed to downloaded: "+failCount, true, HrwaManager.LOG_TYPE_STANDARD);
+	}
+
+	private String convertStackTraceToString(Exception e) {
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+		e.printStackTrace(pw);
+		return sw.toString();
 	}
 	
 	private String getDestinationDirForArchiveFile(String captureYearAndMonthString) {
 		return HrwaManager.archiveFileDirPath + File.separator + captureYearAndMonthString;
 	}
 	
-	private void downloadFile(WebClient webClient, String downloadUrl, String pathToDownloadLocation, String md5HashToValidateAgainst) throws FailingHttpStatusCodeException, MalformedURLException, IOException, NoSuchAlgorithmException {
+	private boolean downloadFile(String downloadUrl, String pathToDownloadLocation, String md5HashToValidateAgainst) throws FailingHttpStatusCodeException, MalformedURLException, IOException, NoSuchAlgorithmException {
 		
 		HrwaManager.writeToLog("Downloading file at " + downloadUrl, true, HrwaManager.LOG_TYPE_STANDARD);
 		System.out.println("This may take a while...");
-		
+	    WebClient webClient = webClientAuthenticator();
+
 		Page pageToDownload = webClient.getPage(downloadUrl);
 		WebResponse response = pageToDownload.getWebResponse();
 		
@@ -254,6 +306,8 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 		pageContentAsInputStream.close();
 		archiveFileOutputStream.close();
 		
+		archiveFileOutputStream = null;
+		pageContentAsInputStream = null;
 		boolean encounteredError = true;
 		
 		if(contentLengthFromHeader > 0) {
@@ -293,6 +347,8 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 			HrwaManager.writeToLog("Download completed successfully.", true, HrwaManager.LOG_TYPE_STANDARD);
 		}
 		
+		webClientCloseWindow(webClient);
+		return encounteredError;
 	}
 	
 	/**
