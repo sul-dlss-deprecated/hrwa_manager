@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -319,7 +320,7 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 
 				
 				FileInputStream fis = new FileInputStream(archiveFile);
-				String md5HashOfDownloadedFile = DigestUtils.md5Hex(IOUtils.toByteArray(fis)).toLowerCase(); //lower case calculated hash
+				String md5HashOfDownloadedFile = computeMD5(fis);
 				fis.close();
 				
 				md5HashToValidateAgainst = md5HashToValidateAgainst.toLowerCase(); //lower case supplied hash to validate against
@@ -351,6 +352,38 @@ public class DownloadArchiveFilesFromArchivitTask extends HrwaTask {
 		return encounteredError;
 	}
 	
+	/**
+	 * Computes the MD5 hash for the file defined by file input stream
+	 * @param fis input stream for the file
+	 * @return
+	 */
+	private String computeMD5(FileInputStream fis) throws java.io.IOException, NoSuchAlgorithmException{
+		MessageDigest digest = MessageDigest.getInstance("MD5");
+		
+		byte[] bytesBuffer = new byte[1024];
+		int bytesRead = -1;
+		while ((bytesRead = fis.read(bytesBuffer)) != -1) {
+			digest.update(bytesBuffer, 0, bytesRead);
+		}
+		fis.close();
+		return convertByteArrayToHexString(digest.digest());
+	}
+	
+	
+	/**
+	 * Converts the bytearray to String
+	 * @param arrayBytes
+	 * @return
+	 */
+	private static String convertByteArrayToHexString(byte[] arrayBytes) {
+	    StringBuffer stringBuffer = new StringBuffer();
+	    for (int i = 0; i < arrayBytes.length; i++) {
+	        stringBuffer.append(Integer.toString((arrayBytes[i] & 0xff) + 0x100, 16)
+	                .substring(1));
+	    }
+	    return stringBuffer.toString().toLowerCase();
+	}
+
 	/**
 	 * Creates the temp download directory where in-progress downloads are placed.  
 	 */
