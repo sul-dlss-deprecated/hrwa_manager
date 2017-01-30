@@ -32,23 +32,23 @@ import edu.columbia.ldpd.hrwa.tasks.TalkToClioTestTask;
 import edu.columbia.ldpd.hrwa.util.common.MetadataUtils;
 
 public class HrwaManager {
-	
+
 	private static String pathToThisRunningJarFile = null;
 
 	public static final int 	EXIT_CODE_SUCCESS 	= 1;
     public static final int 	EXIT_CODE_ERROR 	= 1;
 	public static final String 	applicationName 	= "hrwa_indexer";
-	
+
 	public static final String multiValuedFieldMySQLSeparatorPrefixChar = "|";
 
 	private static Options    	options;
     private static CommandLine	cmdLine;
-    
+
     private static long appStartTime = System.currentTimeMillis();
-    
+
     // Memory stuff
  	public static long maxAvailableMemoryInBytes = Runtime.getRuntime().maxMemory();
- 	
+
  	//CPU Stuff
  	private static int maxAvailableProcessors = Runtime.getRuntime().availableProcessors();
 
@@ -69,28 +69,28 @@ public class HrwaManager {
 	public static String		mysqlPassword		= ""; //default, should be overridden
 	public static String		pathToRelatedHostsFile = ""; //default, should be overridden
 	public static String		requiredmonth = "";
-	
+
 	public static final String		MYSQL_WEB_ARCHIVE_RECORDS_TABLE_NAME			= "web_archive_records";
 	public static final String		MYSQL_MIMETYPE_CODES_TABLE_NAME					= "mimetype_codes";
 	public static final String		MYSQL_SITES_TABLE_NAME							= "sites";
 	public static final String		MYSQL_RELATED_HOSTS_TABLE_NAME					= "related_hosts";
 	public static final String		MYSQL_FULLY_INDEXED_ARCHIVE_FILES_TABLE_NAME 	= "fully_indexed_archive_files";
-	
+
 	public static int				mysqlCommitBatchSize							= 1000; //default, can be overridden
 	public static int				mySQLToSolrRowRetrievalSize						= 1000; //default, can be overridden
-	
+
 	public static int				regularMaintenanceMySQLRowRetrievalSize			= 1000; //default, can be overridden
-	
+
 	public static String			asfSolrUrl										= ""; //default, should be overridden
 	public static String			fsfSolrUrl										= ""; //default, should be overridden
-	
+
 	public static int maxUsableProcessors = HrwaManager.maxAvailableProcessors - 1; //by default, might be overridden
 	public static long maxMemoryThresholdInBytesForStartingNewThreadProcesses = (int)(maxAvailableMemoryInBytes*.75); //default, might be overridden
-	
+
 	//Shared constants
 	public static final Pattern ARCHIVE_FILE_DATE_PATTERN = Pattern.compile(".+-(\\d{4})(\\d{2})\\d{2}\\d{2}\\d{2}\\d{2}.+"); //Sample: //ARCHIVEIT-1716-SEMIANNUAL-XOYSOA-20121117062101-00002-wbgrp-crawl058.us.archive.org-6680.warc
 	public static final String DESIRED_SOLR_INDEXED_MIMETYPE_CODES_STRING_FOR_MYSQL_WHERE_CLAUSE_LIST = "('DOCUMENT', 'HTML', 'PDF', 'SLIDESHOW', 'SPREADSHEET', 'XML')";
-	
+
 	//Task stuff
 	private static boolean runDownloadArchiveFilesTask		= false;
 	private static boolean runSitesToSolrAndMySQLTask		= false;
@@ -98,10 +98,10 @@ public class HrwaManager {
 	private static boolean runMySQLArchiveRecordsToSolrTask = false;
 	private static boolean runRegularMaintenanceTask		= false;
 	private static boolean runQuarterlyMaintenanceTask		= false;
-	
+
 	private static boolean runTalkToClioTestTask			= false;
 	private static boolean runArchiveFileReadTestTask		= false;
-	
+
 	// Log stuff
 	private static BufferedWriter mysqlStandardLogWriter;
 	private static BufferedWriter mysqlErrorLogWriter;
@@ -112,8 +112,8 @@ public class HrwaManager {
 	public static final int LOG_TYPE_NOTICE = 2;
 	public static final int LOG_TYPE_MEMORY = 3;
 	public static final int LOG_TYPE_ALL = 4;
-	
-	private static ArrayList<HrwaTask> tasksToRun = new ArrayList<HrwaTask>(); 
+
+	private static ArrayList<HrwaTask> tasksToRun = new ArrayList<HrwaTask>();
 
 	public static void main(String[] args) {
 		try {
@@ -121,37 +121,37 @@ public class HrwaManager {
 		} catch (URISyntaxException e) {
 			e.printStackTrace();
 		}
-		
+
 		System.out.println("Free memory: " + Runtime.getRuntime().freeMemory());
 		System.out.println("Total memory: " + Runtime.getRuntime().totalMemory());
 		System.out.println("Max memory: " + Runtime.getRuntime().maxMemory());
-		
+
 		System.out.println("Application " + applicationName + ": start!");
 		System.out.println("Path to jar file: " + HrwaManager.pathToThisRunningJarFile);
-		
+
 		parseCommandLineOptions(args);
-		
+
 		//Create required directories if they don't already exist
 		(new File(HrwaManager.logDirPath)).mkdirs();
 		(new File(HrwaManager.tmpDirPath)).mkdirs();
 		(new File(HrwaManager.blobDirPath)).mkdirs();
 		(new File(HrwaManager.archiveFileDirPath)).mkdirs();
-		
+
 		//Create log file writers
 		HrwaManager.openLogFileWriters();
 		HrwaManager.writeToLog("Application " + applicationName + " is running...", true, HrwaManager.LOG_TYPE_STANDARD);
 		HrwaManager.writeToLog("Started on: " + (new SimpleDateFormat().format(new Date())), true, HrwaManager.LOG_TYPE_STANDARD);
-		
+
 		//Print out max memory allocated to this process
-		
+
 		HrwaManager.writeToLog("Max Available Memory: " + bytesToMegabytes(maxAvailableMemoryInBytes) + " MB", true, LOG_TYPE_STANDARD);
 		HrwaManager.writeToLog("Max Available Processors: " + maxAvailableProcessors, true, LOG_TYPE_STANDARD);
 		HrwaManager.writeToLog("Max USABLE Processors (based on default value or user preferences): " + maxUsableProcessors, true, LOG_TYPE_STANDARD);
 		HrwaManager.writeToLog("Max memory threshhold for starting new thread processes: " + HrwaManager.bytesToMegabytes(maxMemoryThresholdInBytesForStartingNewThreadProcesses) + " MB)", true, LOG_TYPE_STANDARD);
-		
+
 		//Add preview mode notation to log if in previewMode
 		if(previewMode) {
-			
+
 			HrwaManager.writeToLog(
 				"**************************************\n" +
 				"* Running in preview mode!           *\n" +
@@ -161,9 +161,9 @@ public class HrwaManager {
 				LOG_TYPE_STANDARD
 			);
 		}
-		
+
 		//Determine which tasks to run
-		
+
 		//Test tasks
 		if(runTalkToClioTestTask) {
 			tasksToRun.add(new TalkToClioTestTask());
@@ -171,7 +171,7 @@ public class HrwaManager {
 		if(runArchiveFileReadTestTask) {
 			tasksToRun.add(new ArchiveFileReadTestTask());
 		}
-		
+
 		//Real tasks
 		if(runDownloadArchiveFilesTask) {
 			tasksToRun.add(new DownloadArchiveFilesFromArchivitTask());
@@ -191,7 +191,7 @@ public class HrwaManager {
 		if(runQuarterlyMaintenanceTask) {
 			tasksToRun.add(new QuarterlyMaintenanceTask());
 		}
-		
+
 		//And run those tasks
 		HrwaManager.writeToLog("Total number of tasks to run: " + tasksToRun.size(), true, LOG_TYPE_STANDARD);
 		for(HrwaTask singleTask : tasksToRun) {
@@ -204,21 +204,21 @@ public class HrwaManager {
 				"---------------------------------------------\n",
 				true,
 				HrwaManager.LOG_TYPE_STANDARD);
-		
+
 		HrwaManager.closeLogFileWriters();
-		
+
 		System.out.println(applicationName + ": Done!");
 	}
-	
-	
-	
-	
-	
-	
+
+
+
+
+
+
 	///////////////
 	/* Log Stuff */
 	///////////////
-	
+
 	public static void openLogFileWriters() {
 		try {
 			mysqlErrorLogWriter = new BufferedWriter(new FileWriter(HrwaManager.logDirPath + File.separatorChar + HrwaManager.logFilePrefix + "-" + "error-log.txt"));
@@ -235,7 +235,7 @@ public class HrwaManager {
 			System.exit(HrwaManager.EXIT_CODE_ERROR);
 		}
 	}
-	
+
 	public static void closeLogFileWriters() {
 		try {
 			writeToLog("Closing memory log.", true, LOG_TYPE_MEMORY);
@@ -250,7 +250,7 @@ public class HrwaManager {
 			e.printStackTrace();
 		}
 	}
-	
+
 	public static void writeToLog(String stringToWrite, boolean printToConsole, int log_type)
 	{
 		if(printToConsole || verbose)
@@ -284,7 +284,7 @@ public class HrwaManager {
 				}
 			}
 		} catch (IOException e) {
-			
+
 			if(log_type != LOG_TYPE_ERROR) {
 				writeToLog("An error occurred while attempting to write to a log file. Log type: " + log_type, true, LOG_TYPE_ERROR);
 				writeToLog(e.getMessage(), true, LOG_TYPE_ERROR);
@@ -294,8 +294,8 @@ public class HrwaManager {
 			}
 		}
 	}
-	
-	
+
+
 	////////////////////////////////
 	/* Command Line Parsing Stuff */
 	////////////////////////////////
@@ -321,17 +321,17 @@ public class HrwaManager {
 	        	verbose  = true;
 	        	System.out.println("Note: Running in verbose mode.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "preview" ) ) {
 	        	previewMode  = true;
 	        	System.out.println(	"Running in PREVIEW mode.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "archivefiledir") ) {
 	        	archiveFileDirPath = cmdLine.getOptionValue( "archivefiledir" );
 	        	System.out.println("Archive File Directory: " + archiveFileDirPath);
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "relatedhostsfile") ) {
 	        	pathToRelatedHostsFile = cmdLine.getOptionValue( "relatedhostsfile" );
 	        	System.out.println("Related hosts file location: " + pathToRelatedHostsFile);
@@ -348,32 +348,32 @@ public class HrwaManager {
 	        	blobDirPath = cmdLine.getOptionValue( "blobdir" );
 	        	System.out.println("Out Directory For Blob Files: " + blobDirPath);
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "logdir") ) {
 	        	logDirPath = cmdLine.getOptionValue( "logdir" );
 	        	System.out.println("Log Directory Path Set Manually: " + logDirPath);
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "tmpdir") ) {
 	        	tmpDirPath = cmdLine.getOptionValue( "tmpdir" );
 	        	System.out.println("Tmp Directory Path Set Manually: " + tmpDirPath);
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "archiveitusername") ) {
 	        	archiveItUsername = cmdLine.getOptionValue( "archiveitusername" );
 	        	System.out.println("An archive-it username has been supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "archiveitpassword") ) {
 	        	archiveItPassword = cmdLine.getOptionValue( "archiveitpassword" );
 	        	System.out.println("An archive-it password has been supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "archiveitcollectionid") ) {
 	        	archiveItCollectionId = Integer.parseInt(cmdLine.getOptionValue( "archiveitcollectionid" ));
-	        	System.out.println("An archive-it collection id was supplied.");	        	
+	        	System.out.println("An archive-it collection id (" + archiveItCollectionId + ") was supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "maxusableprocessors") ) {
 	        	if( Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" )) > HrwaManager.maxAvailableProcessors ) {
 	        		System.err.println("Error: Supplied command line value for maxusableprocessors (" + Integer.parseInt(cmdLine.getOptionValue( "maxusableprocessors" )) + ") is greater than the number of available processors on this machine (" + HrwaManager.maxAvailableProcessors + ")");
@@ -383,130 +383,130 @@ public class HrwaManager {
 	        		System.out.println("The maximum number of usable processors has been set to: " + HrwaManager.maxUsableProcessors);
 	        	}
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "maxmemorythresholdpercentageforstartingnewthreadprocesses") ) {
         		maxMemoryThresholdInBytesForStartingNewThreadProcesses = (long)(HrwaManager.maxAvailableMemoryInBytes*(Double.parseDouble("." + cmdLine.getOptionValue( "maxmemorythresholdpercentageforstartingnewthreadprocesses" ))));
         		System.out.println("The maximum memory threshold for starting new thread processes has been set to: " + HrwaManager.bytesToMegabytes(maxMemoryThresholdInBytesForStartingNewThreadProcesses) + " MB");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "mysqlurl") ) {
 	        	mysqlUrl = cmdLine.getOptionValue( "mysqlurl" );
 	        	System.out.println("A MySQL URL has been supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "mysqldatabase") ) {
 	        	mysqlDatabase = cmdLine.getOptionValue( "mysqldatabase" );
 	        	System.out.println("A MySQL database has been supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "mysqlusername") ) {
 	        	mysqlUsername = cmdLine.getOptionValue( "mysqlusername" );
 	        	System.out.println("A MySQL username has been supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "mysqlpassword") ) {
 	        	mysqlPassword = cmdLine.getOptionValue( "mysqlpassword" );
 	        	System.out.println("A MySQL password has been supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "mysqlcommitbatchsize") ) {
 	        	mysqlCommitBatchSize = Integer.parseInt(cmdLine.getOptionValue( "mysqlcommitbatchsize" ));
 	        	System.out.println("A MySQL commit batch size has been supplied.");
-	        	
+
 	        	if(HrwaManager.mysqlCommitBatchSize < 1) {
 	    			System.out.println("Error: The --mysqlcommitbatchsize must be > 1. Please change the command line argument value that you supplied.");
 	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
 	    		}
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "mysqltosolrrowretrievalsize") ) {
 	        	mySQLToSolrRowRetrievalSize = Integer.parseInt(cmdLine.getOptionValue( "mysqltosolrrowretrievalsize" ));
 	        	System.out.println("A MySQL to Solr row retrieval size has been supplied.");
-	        	
+
 	        	if(HrwaManager.mySQLToSolrRowRetrievalSize < 1) {
 	    			System.out.println("Error: The --mySQLToSolrRowRetrievalSize must be > 1. Please change the command line argument value that you supplied.");
 	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
 	    		}
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "regularmaintenancemysqlrowretrievalsize") ) {
 	        	regularMaintenanceMySQLRowRetrievalSize = Integer.parseInt(cmdLine.getOptionValue( "regularmaintenancemysqlrowretrievalsize" ));
 	        	System.out.println("A regular maintenance MySQL row retrieval size has been supplied.");
-	        	
+
 	        	if(HrwaManager.regularMaintenanceMySQLRowRetrievalSize < 1) {
 	    			System.out.println("Error: The --regularmaintenancemysqlrowretrievalsize must be > 1. Please change the command line argument value that you supplied.");
 	    			System.exit(HrwaManager.EXIT_CODE_ERROR);
 	    		}
 	        }
-	        
-	        
-	        
+
+
+
 	        if ( cmdLine.hasOption( "requiredmonth") ) {
 	        	requiredmonth = cmdLine.getOptionValue( "requiredmonth" );
 
-	        	System.out.println("Specific crawling month has been specified.");
+	        	System.out.println("Specific crawling month (" + requiredmonth + ") has been specified.");
 	        }
-	        
-	        
+
+
 	        if ( cmdLine.hasOption( "asfsolrurl") ) {
 	        	asfSolrUrl = cmdLine.getOptionValue( "asfsolrurl" );
 	        	System.out.println("An ASF Solr URL has been supplied.");
 	        }
-	        
+
 	        if ( cmdLine.hasOption( "fsfsolrurl") ) {
 	        	fsfSolrUrl = cmdLine.getOptionValue( "fsfsolrurl" );
 	        	System.out.println("An FSF Solr URL has been supplied.");
 	        }
-	        
+
 	        //Test Task
 	        if( cmdLine.hasOption( "talktocliotest") ) {
 	        	HrwaManager.runTalkToClioTestTask = true;
 	        	System.out.println("* Will run TalkToClioTestTask.");
 	        }
-	        
+
 	        //Test Task
 	        if( cmdLine.hasOption( "archivefilereadtest") ) {
 	        	HrwaManager.runArchiveFileReadTestTask = true;
 	        	System.out.println("* Will run ArchiveFileReadTestTask.");
 	        }
-	        
+
 	        //Task 1: downloadarchivefiles
 	        if ( cmdLine.hasOption( "downloadarchivefiles") ) {
 	        	HrwaManager.runDownloadArchiveFilesTask = true;
 	        	System.out.println("* Will run DownloadArchiveFilesFromArchivitTask.");
 	        }
-	        
+
 	        //Task 2: sitestomysqlandsolr
 	        if ( cmdLine.hasOption( "sitestosolrandmysql") ) {
 	        	HrwaManager.runSitesToSolrAndMySQLTask = true;
 	        	System.out.println("* Will run SutesToSolrAndMySQLTask.");
 	        }
-	        
+
 	        //Task 3: archivetomysql
 	        if ( cmdLine.hasOption( "archivetomysql") ) {
 	        	HrwaManager.runArchiveToMySQLTask = true;
 	        	System.out.println("* Will run ArchiveToMySQLTask.");
 	        }
-	        
+
 	        //Task 4: mysqlarchiverecordstosolr
 	        if ( cmdLine.hasOption( "mysqlarchiverecordstosolr") ) {
 	        	HrwaManager.runMySQLArchiveRecordsToSolrTask = true;
 	        	System.out.println("* Will run MySQLArchiveRecordsToSolrTask.");
 	        }
-	        
+
 	        //Task 5: regularmaintenance
 	        if ( cmdLine.hasOption( "regularmaintenance") ) {
 	        	HrwaManager.runRegularMaintenanceTask = true;
 	        	System.out.println("* Will run RegularMaintenanceTask.");
 	        }
-	        
+
 	        //Task 6: quarterlymaintenance
 	        if ( cmdLine.hasOption( "quarterlymaintenance") ) {
 	        	HrwaManager.runQuarterlyMaintenanceTask = true;
 	        	System.out.println("* Will run QuarterlyMaintenanceTask.");
 	        }
 
-	        
+
         }
         else
         {
@@ -539,171 +539,171 @@ public class HrwaManager {
         options.addOption( "mysqlarchiverecordstosolr",	false, "Run MySQLArchiveRecordsToSolrTask" );
         options.addOption( "regularmaintenance",	false, "Run RegularMaintenanceTask" );
         options.addOption( "quarterlymaintenance",	false, "Run QuarterlyMaintenanceTask" );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
                 .hasArg()
                 .withDescription( "Location of log directory. Default to ./logs (relative to the application path)." )
                 .create( "logdir" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
                 .hasArg()
                 .withDescription( "Location of temporary working directory." )
                 .create( "tmpdir" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "Prefix to be prepended to log files in the form: outputfileprefix-standar.log, outputfileprefix-error.log, etc." )
                 .create( "logfileprefix" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
                 .hasArg()
                 .withDescription( "Output directory where processed archive record blobs will go. The specified directory will be created if it does not already exist." )
                 .create( "blobdir" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "directory" )
                 .hasArg()
                 .withDescription( "Root directory of archive files (arc.gz/warc.gz) to be indexed (recurses through subdirectories)." )
                 .create( "archivefiledir" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "file" )
                 .hasArg()
                 .withDescription( "File that contains related hosts into for the related hosts table (linking specific (W)ARC crawled page domains to differently-named CLIO FSF record domains)." )
                 .create( "relatedhostsfile" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "Username required for logging into the Archive-It website and downloading archive files." )
                 .create( "archiveitusername" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "Password required for logging into the Archive-It website and downloading archive files." )
                 .create( "archiveitpassword" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "integer" )
                 .hasArg()
                 .withDescription( "Numeric ID of the Archive-It collection that we want to download from." )
                 .create( "archiveitcollectionid" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "integer" )
                 .hasArg()
                 .withDescription( "The maximum number of processors that should be used by this program. Defaults to (number of processors - 1). Note: Supplied value muse be <= the number of cores available on the machine." )
                 .create( "maxusableprocessors" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "integer" )
                 .hasArg()
                 .withDescription( "The maximum memory threshold percentage for starting new thread processes. Defaults to 75% of the RAM allocated to this java process. Note: Supplied value should be between 50 (%) and 100 (%)." )
                 .create( "maxmemorythresholdpercentageforstartingnewthreadprocesses" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "MySQL URL to connect to." )
                 .create( "mysqlurl" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "MySQL database to connect to." )
                 .create( "mysqldatabase" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "MySQL username for the database given in -mysqldatabase." )
                 .create( "mysqlusername" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "MySQL password for the database given in -mysqldatabase." )
                 .create( "mysqlpassword" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "integer" )
                 .hasArg()
                 .withDescription( "MySQL commit batch size (e.g. commit records in batches of 1000)." )
                 .create( "mysqlcommitbatchsize" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "integer" )
                 .hasArg()
                 .withDescription( "MySQL to solr row retrieval size (e.g. When indexing to Solr, select records from MySQL in groups of 1000)." )
                 .create( "mysqltosolrrowretrievalsize" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "integer" )
                 .hasArg()
                 .withDescription( "Regular maintenance MySQL row retrieval size (e.g. When performing regular HRWA app maintenance, select records from MySQL in groups of 1000)." )
                 .create( "regularmaintenancemysqlrowretrievalsize" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "ASF Solr URL to connect to." )
                 .create( "asfsolrurl" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "FSF Solr URL to connect to." )
                 .create( "fsfsolrurl" )
         );
-        
+
         options.addOption(
         		OptionBuilder.withArgName( "string" )
                 .hasArg()
                 .withDescription( "Specific year_month to download." )
                 .create( "requiredmonth" )
         );
-        
+
     }
-	
+
 	public static String getCurrentAppRunTime() {
 		return "Current run time: " + TimeStringFormat.getTimeString((System.currentTimeMillis() - HrwaManager.appStartTime)/1000);
 	}
-	
+
 	public static long getCurrentAppMemoryUsageInBytes() {
 		return Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
 	}
-	
+
 	public static String getCurrentAppMemoryUsageMessage() {
-		
+
 		int bytesInAMegabyte = 1048576;
-		
+
 		return "Current memory usage: " + (getCurrentAppMemoryUsageInBytes()/bytesInAMegabyte) + "/" + (maxAvailableMemoryInBytes/bytesInAMegabyte) + " MB";
 	}
-	
+
 	/**
 	 * Returns a date string of the format "YYYY_MM" for the given archive file fileName.
 	 * @return A string of the format "YYYY_MM", or null if the fileName cannot be parsed properly.
@@ -716,28 +716,28 @@ public class HrwaManager {
 			return captureYearAndMonth[0] + "_" + captureYearAndMonth[1];
 		}
 	}
-	
+
 	/**
 	 * Returns a String[] holding the capture year at index [0] and the capture month at index [1].
 	 * @param fileName
 	 * @return String[] holding the capture year and capture month. Returns null if the file name cannot be parsed properly.
 	 */
 	public static String[] extractCaptureYearAndMonthStringsFromArchiveFileName(String fileName){
-		
+
 		Matcher matcher = HrwaManager.ARCHIVE_FILE_DATE_PATTERN.matcher(fileName);
-		
+
 		if(matcher.matches()) {
-			//Note matcher.group(0) returns the entire matched string 
+			//Note matcher.group(0) returns the entire matched string
 			//matcher.group(1) returns the year
 			//matcher.group(2) returns the month
-			String[] arrToReturn = {matcher.group(1), matcher.group(2)}; 
+			String[] arrToReturn = {matcher.group(1), matcher.group(2)};
 			return arrToReturn;
 		} else {
 			return null;
 		}
-		
+
 	}
-	
+
 	public static String getHoststringFromUrl(String url) {
 		try {
 			return MetadataUtils.parseHoststring(url);
@@ -747,7 +747,7 @@ public class HrwaManager {
 			return null;
 		}
 	}
-	
+
 	public static int bytesToMegabytes(long valueInBytes) {
 		return (int)(valueInBytes/1048576L);
 	}
