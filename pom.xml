@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>edu.columbia.ldpd.hrwa</groupId>
   <artifactId>hrwa_manager</artifactId>
-  <version>1.0.05</version>
+  <version>1.0.06</version>
   <name>HRWA Manager</name>
   <description>Human Rights Web Archive manager application.</description>
   <url>https://github.com/cul/hrwa_manager</url>
@@ -32,12 +32,12 @@
       </roles>
     </developer>
   </developers>
-  
+
     <scm>
     <connection>https://github.com/cul/hrwa_manager</connection>
     <url>https://github.com/cul/hrwa_manager</url>
   </scm>
-  
+
   <repositories>
     <repository>
       <releases>
@@ -93,9 +93,9 @@
       </releases>
     </repository>
   </repositories>
-  
+
   <dependencies>
-  
+
   	<dependency>
       <groupId>org.archive.heritrix</groupId>
       <artifactId>heritrix-commons</artifactId>
@@ -111,7 +111,7 @@
         </exclusion>
       </exclusions>
     </dependency>
-  
+
     <dependency>
       <groupId>mysql</groupId>
       <artifactId>mysql-connector-java</artifactId>
@@ -173,8 +173,8 @@
 		<version>4.1.0</version>
 	</dependency>
 	<!--
-		The jcl-over-slf4j dependency (specifically version 1.5.8) is VERY important. 
-		It fixes a conflict between different required loggers for various other 
+		The jcl-over-slf4j dependency (specifically version 1.5.8) is VERY important.
+		It fixes a conflict between different required loggers for various other
 		dependencies.
 	-->
 	<dependency>
@@ -193,7 +193,7 @@
   	<dependencies>
   	</dependencies>
   </dependencyManagement>
-  
+
   <build>
 		<plugins>
 			<plugin>
@@ -234,7 +234,7 @@
                             <excludes>
                                 <exclude>META-INF/*.SF</exclude>
                                 <exclude>META-INF/*.DSA</exclude>
-                                <exclude>META-INF/*.RSA</exclude>                                       
+                                <exclude>META-INF/*.RSA</exclude>
                             </excludes>
                         </filter>
                     </filters>
@@ -257,8 +257,8 @@
 		          <source>1.6</source>
 		          <target>1.6</target>
 		        </configuration>
-	      	</plugin>	      	
+	      	</plugin>
 		</plugins>
   </build>
-	  
+
 </project>

@@ -1,3 +1,19 @@
+## HRWA Manager (Stanford Libraries)
+
+image:https://travis-ci.org/sul-dlss/hrwa_manager.svg?branch=master["Build Status", link="https://travis-ci.org/sul-dlss/hrwa_manager"]
+NOTE:  no tests executed ...
+image:https://badge.fury.io/gh/sul-dlss%hrwa_manager.svg?branch=master["Latest GitHub tagged version", link="https://badge.fury.io/gh/sul-dlss%hrwa_manager"]
+
+Java application for Human Rights Web Archive file downloading.
+
+Stanford University Libraries fork of [cul/hrwa_manager](https://github.com/cul/hrwa_manager).  There are a small number of local modifications to the upstream code:
+
+* ndushay@stanford.edu - update url in DownloadFilesFromArchiveitTask to https://warcs.archive-it.org
+* c301d2f aalsum@stanford.edu - Update MD5 generation to cover large files
+* 1b637c5 aalsum@stanford.edu - Update DownloadFilesFromArchiveitTask to download files from any collection for specific month
+
+Orig README:
+
 HRWA Manager
 
 This application is the main manager for all Human Rights Web Archive file downloading, indexing, and CLIO-related interaction.
